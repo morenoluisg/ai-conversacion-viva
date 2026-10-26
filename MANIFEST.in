@@ -1,0 +1,7 @@
+include .env.example
+include CHANGELOG.md CONTRIBUTING.md
+include requirements.txt requirements-local.txt
+include setup_windows.bat iniciar_windows.bat
+recursive-include scripts *.sh
+recursive-include docs *.md *.html *.pptx
+recursive-include tests *.py *.mjs

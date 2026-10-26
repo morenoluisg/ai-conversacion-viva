@@ -1,0 +1,2 @@
+# Incluye Faster-Whisper para transcripción local.
+-e .[local]

@@ -1,0 +1,2 @@
+# Instalación editable del proyecto. Dependencias declaradas en pyproject.toml.
+-e .
