@@ -4,6 +4,14 @@ Aplicación local que convierte el audio de una conversación en texto y aliment
 
 Incluye seis vistas: **mapa radial, anillos temáticos, evolución temática, Colombia en puntos, corrientes y constelaciones**.
 
+## Demo en GitHub Pages
+
+Enlace de publicación: **https://morenoluisg.github.io/ai-conversacion-viva/**.
+
+La demo pública usa `docs/index.html`, una copia del HTML autónomo `MinAmbiente_Conversacion_Viva_v4.html`. Incluye conversación simulada, seis vistas, entrada manual y exportación JSON. GitHub Pages sirve archivos estáticos: para capturar audio del sistema y transcribir con Whisper sigue la instalación local que aparece abajo. El botón Micrófono de la demo depende del reconocimiento de voz del navegador; no utiliza el servidor local ni Whisper y su servicio puede requerir Internet.
+
+La publicación se configura en **Settings → Pages → Deploy from a branch → main → /docs**. Al modificar `docs/index.html` y hacer push a `main`, GitHub vuelve a publicar la demo. `docs/.nojekyll` permite servir los archivos directamente. La carpeta `temp/` permanece excluida de Git; los cambios hechos allí deben copiarse a `docs/index.html` para publicarlos.
+
 ## 1. Requisitos para una máquina nueva
 
 - Python **3.11 o 3.12**. En Windows instala también el lanzador `py` y pip.
