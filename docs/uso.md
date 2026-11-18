@@ -118,6 +118,12 @@ Invoke-RestMethod -Method Post `
 
 La visualización recibe automáticamente el evento mediante `/ws/view/{session}`. Puedes cambiar la vista desde el panel sin tocar la pantalla proyectada. El servidor y las dos pestañas deben estar en el mismo equipo y origen (no mezcles `localhost` con `127.0.0.1`).
 
+## Proyectar el gráfico con el texto
+
+En la pantalla de visualización, **F** activa o desactiva la pantalla completa y **H** oculta o recupera los controles. Pulsa **K** para mostrar u ocultar el panel de texto de la conversación, incluso con los controles ocultos. También puedes usar el botón **Mostrar/Ocultar texto (K)**.
+
+Para proyectar el gráfico junto al texto, pulsa **F**, después **H** y luego **K**. El panel muestra las nuevas intervenciones y conserva su visibilidad al cambiar entre las siete vistas. Una segunda pulsación de **K** lo oculta. Los atajos no se activan mientras escribes en un campo.
+
 ## Arquitectura y archivos
 
 | Componente | Archivo | Función |

@@ -236,3 +236,144 @@ Es un prototipo local. El servidor escucha en `127.0.0.1` y no implementa un des
 El audio de distintas voces se mezcla y los fragmentos no identifican al hablante. Las posiciones de los puntos en Colombia son una composición visual, no una atribución regional. Ensaya la captura, los permisos y la calidad del reconocimiento en el computador y el salón del evento.
 
 La demo autónoma y la PPT también forman parte del repositorio. La aplicación ejecutable usa el HTML de `src/minambiente_live/static/visual.html`.
+
+## Categorías editables y DeepSeek
+
+En el panel de captura, abre **Agenda, categorías y proyección**:
+
+1. Pega la agenda y pulsa **Proponer desde la agenda**. Revisa nombres, colores y palabras clave; pulsa **Guardar categorías** para aplicar la propuesta.
+2. Puedes agregar, renombrar y quitar categorías manualmente. Se permiten hasta 24 categorías, con nombres únicos. Quitar una categoría retira sus conceptos del historial visual; la transcripción se conserva.
+3. Activa **Permitir categorías emergentes** para que DeepSeek proponga nuevas categorías al analizar las intervenciones. Cada concepto requiere evidencia literal del texto. Las categorías inferidas son orientativas, no acuerdos ni conclusiones del evento.
+4. Marca un grupo y pulsa **Abrir mapa del grupo seleccionado**. Repite para proyectar varios mapas con grupos distintos. La visualización general incluye automáticamente categorías emergentes. Las ventanas con un grupo fijo conservan los identificadores seleccionados; abre otra ventana para incluir nuevas categorías.
+
+Las seis vistas usan ahora un fondo claro y colores de mayor contraste para proyección. Cada ventana admite las teclas 1–6 para elegir su vista y F para pantalla completa.
+
+Configuración del servidor en `.env` (archivo ignorado por Git):
+
+```dotenv
+CONCEPT_PROVIDER=deepseek
+DEEPSEEK_API_KEY=tu_clave
+DEEPSEEK_MODEL=deepseek-flash
+```
+
+La clave permanece en el servidor. Con este proveedor, la agenda y el texto transcrito se envían a DeepSeek; el audio sigue usando Whisper local o Deepgram según la selección de captura. Si falla el análisis de conceptos se usan reglas y palabras clave de las categorías activas, identificado como `rules-fallback`. Si falla la propuesta de agenda, se conserva la configuración anterior.
+
+Las categorías y el historial son independientes por sesión y viven en memoria: se pierden al reiniciar el servidor. **Exportar texto y conceptos** incluye también la agenda y configuración de categorías. Vaciar la sesión elimina las intervenciones y conserva la configuración.
+
+La inferencia desde la agenda devuelve una propuesta sin guardarla: `POST /api/sessions/{session}/infer-categories`. Consulta o actualiza la configuración con `GET` / `PUT /api/sessions/{session}/settings`. Los eventos y snapshots WebSocket incluyen las categorías necesarias para interpretar sus índices.
+
+## Exportación de cierre con análisis
+
+Al terminar, detén la captura y pulsa **Generar documentos de cierre** al final del panel. El proceso se ejecuta en el servidor; puedes recargar la página y seguir consultando el estado. Al finalizar aparece **Descargar paquete de cierre**.
+
+El ZIP incluye:
+
+- `conversacion_completa.txt`: todas las intervenciones confirmadas, con fecha, hablante disponible y referencia.
+- `datos_conversacion.json`: historial, configuración, categorías, referencias y análisis para reutilización.
+- `analisis_categorias.html`: síntesis transversal y análisis de cada categoría, con hallazgos, tensiones, riesgos, oportunidades, recomendaciones, preguntas abiertas y enlaces a las intervenciones.
+- `analisis_visual.html`: distribución por categorías, mapa de relaciones y evolución por tramos, acompañados de análisis y notas de interpretación.
+
+Los dos documentos HTML son autocontenidos: ábrelos en un navegador y usa **Imprimir / guardar como PDF**. Conserva ambos archivos en la misma carpeta para seguir sus enlaces cruzados. Los gráficos son estáticos y se reconstruyen con el historial completo; no son capturas de las animaciones de pantalla.
+
+El historial de exportación conserva todos los fragmentos de la sesión en memoria, aunque la pantalla solo muestre los últimos 150. Conserva también la clasificación original de categorías retiradas o renombradas. `GET /api/sessions/{session}/events` devuelve este historial completo con el catálogo de categorías de cada intervención. Vaciar la sesión o reiniciar el servidor elimina el historial; descarga el cierre antes de hacerlo. Las sesiones con historial ya no se descartan automáticamente para abrir otras nuevas.
+
+DeepSeek recibe las intervenciones y la agenda para elaborar los informes. Las conversaciones largas se procesan por bloques y se consolidan por niveles. Las referencias se validan automáticamente; el contenido de las conclusiones requiere revisión humana. Las menciones y coocurrencias no constituyen votos, consenso, compromisos ni causalidad. Si falla la IA, el paquete conserva transcripción y gráficos y señala las secciones sin análisis; puedes volver a generarlo.
+
+API: `POST /api/sessions/{session}/export`, `GET /api/sessions/{session}/export/status` y `GET /api/sessions/{session}/export/download`. El paquete corresponde al corte de la conversación al pulsar Generar; nuevas intervenciones requieren otra generación.
+
+## Grupos simultáneos y respuesta de las animaciones
+
+En **Grupos simultáneos** puedes nombrar hasta tres grupos y marcar las categorías que componen cada uno. Una categoría y sus palabras clave pueden participar en varios grupos. **Guardar y abrir este grupo** guarda la configuración y abre su pantalla; repite para ver dos o tres pantallas recibiendo la misma conversación. La configuración se comparte a través del servidor, también entre computadores.
+
+En cada visualización, **Grupo del tablero** permite cambiar entre toda la conversación, cada grupo y la unión de todos los grupos. El filtro se mantiene al pasar entre las seis vistas. El tablero conserva los últimos 150 fragmentos recibidos sin filtrar y reconstruye la selección al cambiar de grupo, sin duplicar conceptos compartidos. La exportación de cierre sigue conservando el historial completo.
+
+Las animaciones tienen estas relaciones explícitas con el contenido clasificado del grupo:
+
+- **Colombia en puntos:** la cantidad crece con las menciones de conceptos, mediante una curva de saturación progresiva hasta 2600 puntos. Los colores se distribuyen según las proporciones de menciones de las categorías. Las posiciones son artísticas, sin atribución geográfica. Texto sin conceptos del grupo no incrementa los puntos.
+- **Corrientes:** se activan 18 líneas por mención de concepto, hasta 900. Sus colores reflejan las proporciones temáticas. Una intervención con conceptos del grupo produce un pulso de velocidad y tamaño de 1,8 segundos; después vuelven a su actividad de base. Las trayectorias siguen siendo ruido generativo y no representan relaciones causales, sentimentales o geográficas.
+
+Los puntos y las líneas son una representación artística de actividad temática, no un recuento literal de personas, votos, palabras o lugares. Sin conceptos del grupo, no se muestran puntos temáticos ni corrientes activas. Los fondos de silueta y los controles permanecen visibles.
+
+Verificación de las seis vistas, cambios de grupo y respuesta de las animaciones: `node tests/test_visual.mjs`.
+
+## Tres lecturas independientes de la conversación
+
+La sección 3 presenta **Agenda SINA CONECTA**, **Editable** y **DeepSeek autónomo**. Las tres se construyen en paralelo a partir de las mismas intervenciones confirmadas. Cada tablero permite seleccionar la lectura y después su grupo en las seis vistas.
+
+- **Agenda:** ocho categorías y tres grupos iniciales preparados a partir de `Agenda borrador detallada v3.docx`. El texto extraído de esa versión se incluye en el paquete (`static/agenda-sina.txt`); no depende de la carpeta temporal en producción. Los grupos son Del dato a la decisión, Habilitadores de la transformación y SINA NEXT 2035. Las categorías de esta lectura son fijas, y crecen las menciones de los temas que realmente aparecen.
+- **Editable:** conserva las categorías, palabras clave y grupos que define el operador. Puede permitir nuevas categorías emergentes sin perder su estructura manual.
+- **DeepSeek autónomo:** empieza con cero categorías y cero grupos, sin imponerle la taxonomía de la agenda. DeepSeek crea categorías sustentadas en citas literales del texto actual y define entre una y tres constelaciones semánticas. Reutiliza los temas anteriores; si omite categorías históricas en una propuesta de grupos se solicita una consolidación específica. Se admiten hasta 24 categorías. Las constelaciones pueden reorganizarse al avanzar la conversación y requieren revisión humana.
+
+La inferencia de las tres lecturas se ejecuta en paralelo. La automática consulta DeepSeek aun cuando el modo de conceptos editable sea `rules`; requiere la clave del servidor. Esto aumenta el número de solicitudes y puede aumentar la latencia. Si falla la respuesta automática, conserva el texto y la estructura anterior, muestra la indisponibilidad y reintenta con la siguiente intervención.
+
+El selector de la sección 3 abre o cambia las pantallas del mismo navegador; cada tablero también puede cambiar de lectura por su cuenta. Para abrir otro equipo, comparte una URL con `lens=agenda`, `lens=manual` o `lens=automatic`. Los snapshots WebSocket incluyen las tres lecturas; las intervenciones emitidas incluyen sus clasificaciones independientes en `lenses`. `GET /api/sessions/{session}/lenses` consulta las dos lecturas adicionales. Vaciar la sesión reinicia los temas automáticos y conserva la configuración editable y de agenda.
+
+Los documentos de cierre se generan para la lectura elegida en la sección 3 al pulsar Generar. La API admite `POST /api/sessions/{session}/export?lens=agenda|manual|automatic`. El estado y los informes indican la lectura analizada; para obtener los tres análisis, genera y descarga un paquete por lectura.
+
+## Río de temas animado
+
+La vista **7 · Río de temas** se inspira en las transiciones de streamgraph de Mike Bostock (https://observablehq.com/@d3/streamgraph-transitions). La implementación es propia en Canvas y no carga D3 ni datos externos. A diferencia de la demostración de referencia, que genera capas aleatorias, esta vista utiliza exclusivamente conceptos clasificados de las intervenciones.
+
+Cada banda representa una categoría de la lectura y grupo seleccionados. Su grosor es la media móvil de menciones de conceptos sobre hasta tres fragmentos, en una ventana de 40 intervenciones. Las bandas se apilan alrededor de una línea central, conservan el color de la categoría y cambian mediante una transición de 1,1 segundos cuando se actualizan los datos. Al terminar la transición se estabilizan hasta la siguiente intervención. La escala es local al tramo y se indica en pantalla; el eje horizontal sigue el orden de intervención, no duraciones iguales. Los tramos sin conceptos no inventan actividad.
+
+El deslizador temporal, inspirado en la navegación temporal de The Wealth & Health of Nations (https://observablehq.com/@mbostock/the-wealth-health-of-nations), permite revisar un fragmento entre los últimos 150 recibidos. Mientras se revisa un momento anterior, las nuevas intervenciones siguen llegando y la selección temporal se mantiene. **Volver al directo** muestra nuevamente el tramo más reciente. Cambiar de lectura o grupo vuelve al directo. La animación respeta la preferencia del navegador de reducir movimiento.
+
+La vista está disponible desde el panel, el tablero y la tecla **7**. El informe visual de cierre incluye una versión estática del río de temas con su explicación metodológica, además de los gráficos existentes.
+
+## Etiquetas representativas y límites de presentación
+
+La extracción con DeepSeek selecciona hasta tres conceptos centrales por intervención, con etiquetas nominales de hasta cuatro palabras y 36 caracteres. Recibe un vocabulario de etiquetas recientes por lectura para reutilizar conceptos ya nombrados en lugar de crear variantes continuamente. Las frases demasiado largas se descartan como etiquetas de conceptos; la transcripción original permanece completa. La evidencia literal sigue siendo obligatoria y el modelo recibe instrucciones para evitar consecuencias inferidas y expresiones temporales genéricas sin relevancia central.
+
+El mapa radial recupera la distribución circular original, con centro, ramas por categoría y hojas en abanico. Mantiene posiciones fijas y un presupuesto adaptable al tamaño del lienzo: hasta seis categorías por página y entre dos y cuatro etiquetas por categoría según **Detalle visual**, con reducción adicional si falta altura. **Otros temas** recorre las categorías restantes. Las selecciones se mantienen estables; un concepto nuevo sustituye a otro visible cuando acumula una diferencia suficiente de menciones, evitando cambios por cada aparición aislada. Esta regla selecciona qué mostrar, sin atribuir importancia o consenso.
+
+Las etiquetas visibles se ajustan al ancho disponible con puntos suspensivos. Al pulsar un nodo radial se muestra su etiqueta y el fragmento de origen en el panel lateral. El contador indica cuántos conceptos se presentan respecto a los detectados. Los datos completos siguen disponibles en el historial y en los informes.
+
+Los anillos limitan etiquetas a un subconjunto representativo por categoría y al espacio vertical disponible. Las constelaciones comparten la paginación temática y tienen un límite de puntos por categoría para evitar nubes desbordadas. Los gráficos temporales y las métricas siguen utilizando todos los conceptos del tramo, independientemente del presupuesto de etiquetas.
+
+## Páginas para servidor y cliente de captura
+
+El panel completo continúa en `/` y tiene el alias `/admin`. Para trabajo distribuido se añaden:
+
+- `/servidor`: formulario para preparar enlaces con dirección del servidor y código de sesión. Admite dominio o IP con puerto. No envía audio ni consulta APIs de otros orígenes: prepara enlaces para abrir las páginas desde el destino elegido.
+- `/captura?session=CODIGO`: cliente dedicado a seleccionar micrófono, pestaña o audio del sistema e iniciar/detener el envío. No incluye los editores de categorías ni los controles de borrado o exportación.
+- `/visual?live=1&session=CODIGO&lens=agenda`: proyección de la misma sesión.
+
+Desde el panel, abre **Servidor y cliente remoto** y copia el enlace de captura al equipo del operador. El enlace contiene el código de sesión; abrir el panel en otro navegador con `?session=CODIGO` permite administrar esa misma conversación. Sin un código explícito, el panel conserva su sesión local habitual.
+
+La captura del panel completo y del cliente remoto utiliza la misma implementación de audio (`capture-audio.js`), incluidos PCM16 mono a 16 kHz, suma opcional de micrófono, medidor de señal, espera del procesamiento final y detención de las pistas. La página de captura muestra el servidor, la sesión y el estado del envío. Solo se admite una captura por sesión; el cliente consulta el estado y el servidor mantiene el bloqueo definitivo.
+
+Los controles de vista y lectura del administrador se transmiten ahora por el servidor mediante WebSocket, por lo que llegan también a pantallas abiertas en otros equipos. `POST /api/sessions/{session}/display` cambia la vista o lectura; su configuración se incluye al reconectar una pantalla. Cada tablero conserva además sus selectores locales.
+
+### Preparar la instalación remota
+
+Esta actualización separa las páginas y permite configurar la escucha; no publica automáticamente un servidor ni configura certificados o autenticación. Antes de exponerlo en Internet, prepara HTTPS y protección de acceso en el despliegue. Separar las páginas no crea permisos de usuario diferentes. Las sesiones siguen en memoria y requieren exportación antes de reiniciar.
+
+En `.env`, configura las direcciones reales de la instalación:
+
+```dotenv
+# Si el proxy HTTPS está en el mismo servidor, conserva la escucha local.
+BIND_HOST=127.0.0.1
+ALLOWED_HOSTS=127.0.0.1,localhost,conversacion.tudominio.co
+```
+
+Para escuchar también en interfaces de red cuando tu instalación lo requiera:
+
+```powershell
+$env:PYTHONPATH='src'
+.venv\Scripts\python.exe -m minambiente_live --host 0.0.0.0 --port 8765
+```
+
+El proxy HTTPS debe reenviar las conexiones WebSocket y conservar el encabezado Host del dominio público. Una dirección HTTP de red puede abrir las páginas, pero el cliente bloqueará el inicio de captura: usa HTTPS. `localhost` solo representa el equipo donde está abierto el navegador; no sirve como dirección compartida entre computadores.
+
+El servidor recibe audio del navegador del operador; no accede por sí solo al micrófono del equipo remoto. La selección de audio y los permisos siempre se realizan en ese navegador. DeepSeek y las demás claves permanecen en el servidor.
+
+Verificaciones: `node tests/test_connection.mjs`, `node tests/test_visual.mjs` y los tests Python de `tests/test_remote.py`.
+
+
+Las etiquetas radiales reservan cajas de espacio antes de dibujarse. Los títulos de categoría tienen prioridad; los conceptos se disponen alrededor de su rama con un máximo de dos líneas y una etiqueta visual de hasta tres palabras. Si no hay espacio libre, la etiqueta y su hoja se omiten de esa vista. El concepto completo continúa en los datos y el panel de detalle. Los enlaces tenues entre hojas de categorías diferentes representan coaparición en un mismo fragmento y tienen un límite visual para evitar ruido.
+
+## Fondo claro u oscuro desde administración
+
+En el panel completo, junto a la selección de vista, **Fondo de los tableros** permite elegir Claro u Oscuro. La opción se aplica mediante el servidor a todas las pantallas de la sesión y se incluye al reconectar. El fondo claro sigue siendo el valor inicial; la elección dura mientras exista la sesión en el servidor.
+
+El modo oscuro adapta el fondo del lienzo, las etiquetas, los controles, las líneas y los colores de las categorías para conservar contraste, incluidos colores personalizados oscuros. Cambiar el fondo no modifica la clasificación, los conceptos, las posiciones del mapa ni reinicia la animación activa. Las siete vistas usan la misma elección. Los informes mantienen su presentación clara para impresión.

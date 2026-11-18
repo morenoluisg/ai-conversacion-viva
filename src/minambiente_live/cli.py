@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 def main():
     parser = argparse.ArgumentParser(description='MinAmbiente · Conversación viva')
+    parser.add_argument('--host', default=None, help='Dirección de escucha; por defecto BIND_HOST o 127.0.0.1')
     parser.add_argument('--port', type=int, default=8765, help='Puerto local (8765)')
     parser.add_argument('--prepare-model', action='store_true', help='Preparar Whisper sin capturar audio')
     args = parser.parse_args()
@@ -20,4 +21,4 @@ def main():
     if not 1 <= args.port <= 65535:
         parser.error('El puerto debe estar entre 1 y 65535')
     import uvicorn
-    uvicorn.run('minambiente_live.server:app', host='127.0.0.1', port=args.port, workers=1)
+    uvicorn.run('minambiente_live.server:app', host=args.host or os.getenv('BIND_HOST', '127.0.0.1'), port=args.port, workers=1)

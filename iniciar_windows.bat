@@ -1,5 +1,6 @@
 @echo off
 cd /d "%~dp0"
+set "PYTHONPATH=%~dp0src"
 if not exist .venv\Scripts\python.exe (
   echo Primero ejecuta setup_windows.bat.
   pause

@@ -1,0 +1,167 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+function boot(query){const elements=new Map(),gradient={addColorStop(){}};const context2d=new Proxy({createRadialGradient:()=>gradient},{get:(t,k)=>t[k]||(()=>{})});function element(){const classes=new Set(),attributes={};return {style:{},setAttribute(k,v){attributes[k]=v},getAttribute:k=>attributes[k],classList:{contains:k=>classes.has(k),toggle(k,force){const on=force===undefined?!classes.has(k):force;if(on)classes.add(k);else classes.delete(k);return on}},append(){},replaceChildren(){},clientWidth:1100,clientHeight:700,getContext:()=>context2d,getBoundingClientRect:()=>({left:0,top:0})}}const document={documentElement:{dataset:{}},getElementById(id){if(!elements.has(id))elements.set(id,element());return elements.get(id)},querySelectorAll:()=>[],querySelector:()=>element(),createElement:element,createTextNode:s=>s,addEventListener(type,handler){this.listeners??={};this.listeners[type]=handler},body:element()};const sandbox={document,window:{},location:{search:query,protocol:'http:',host:'localhost'},performance,URLSearchParams,devicePixelRatio:1,ResizeObserver:class{observe(){}},BroadcastChannel:class{},WebSocket:class{},requestAnimationFrame(){},setInterval(){},setTimeout(){},console};sandbox.window=sandbox;vm.createContext(sandbox);const source=fs.readFileSync('src/minambiente_live/static/visual.html','utf8').split('<script>')[1].split('</script>')[0];vm.runInContext(source,sandbox);return sandbox;}
+for(const query of ['?live=1','?live=1&categories=8']){const sandbox=boot(query);vm.runInContext(`const cats=Array.from({length:10},(_,i)=>({id:String(i),name:'Tema '+i,color:'#2567b2',keywords:[]})); applyCategories(cats);window.minambiente.ingest({id:'test',text:'Escuelas y ciencia',categories:cats,concepts:[{label:'Escuelas',theme:8},{label:'Ciencia',theme:9}]});for(const mode of Object.keys(modes)){setView(mode);render(performance.now())}`,sandbox);const count=vm.runInContext('nodes.size',sandbox);assert.equal(count,query.includes('categories')?1:2);}
+console.log('Seis vistas con 10 categorías y filtros: OK');
+const sandbox=boot('?live=1');
+vm.runInContext(`
+ const cats=[{id:'water',name:'Agua',color:'#087e8b',keywords:['agua']},{id:'data',name:'Datos',color:'#2567b2',keywords:['datos']},{id:'climate',name:'Clima',color:'#a65d08',keywords:['clima']}];
+ applyCategories(cats);
+ setGroups([{id:'one',name:'Agua y datos',categories:['water','data']},{id:'two',name:'Clima',categories:['climate']},{id:'three',name:'Datos compartidos',categories:['data']}]);
+ window.minambiente.ingest({id:'a',text:'Agua y datos',categories:cats,concepts:[{label:'Agua',theme:0},{label:'Datos',theme:1}]});
+ window.minambiente.ingest({id:'b',text:'Clima',categories:cats,concepts:[{label:'Clima',theme:2}]});
+ activeGroup='one';groupSelection();rebuildGroup();
+`,sandbox);
+assert.equal(vm.runInContext('selectedMentions()',sandbox),2);
+assert.equal(vm.runInContext('rawEvents.length',sandbox),2);
+const firstTarget=vm.runInContext('mapTarget()',sandbox);
+vm.runInContext("activeGroup='two';groupSelection();rebuildGroup()",sandbox);
+assert.equal(vm.runInContext('nodes.size',sandbox),1);
+assert.equal(vm.runInContext('[...nodes.values()][0].label',sandbox),'Clima');
+assert.ok(vm.runInContext('mapTarget()',sandbox)<firstTarget);
+assert.equal(vm.runInContext('fieldActivity(performance.now()).count',sandbox),18);
+vm.runInContext("activeGroup='one';groupSelection();rebuildGroup()",sandbox);
+const before=vm.runInContext('selectedMentions()',sandbox);
+vm.runInContext("window.minambiente.ingest({id:'c',text:'Solo clima',categories:cats,concepts:[{label:'Clima',theme:2}]})",sandbox);
+assert.equal(vm.runInContext('selectedMentions()',sandbox),before);
+assert.equal(vm.runInContext('fieldActivity(performance.now()).recent',sandbox),false);
+vm.runInContext("activeGroup='combined';groupSelection();rebuildGroup()",sandbox);
+assert.equal(vm.runInContext('selectedMentions()',sandbox),4);
+assert.equal(vm.runInContext('rawEvents.length',sandbox),3);
+vm.runInContext("activeGroup='two';groupSelection();rebuildGroup();window.minambiente.ingest({id:'d',text:'Nuevo clima',categories:cats,concepts:[{label:'Clima',theme:2}]})",sandbox);
+assert.equal(vm.runInContext('fieldActivity(performance.now()).recent',sandbox),true);
+assert.equal(vm.runInContext('fieldActivity(performance.now()+2000).recent',sandbox),false);
+for(const mode of ['radial','sunburst','flow','particles','field','constellation'])vm.runInContext(`setView('${mode}');render(performance.now())`,sandbox);
+vm.runInContext('clearLive()',sandbox);
+assert.equal(vm.runInContext('rawEvents.length',sandbox),0);
+assert.equal(vm.runInContext('mapTarget()',sandbox),0);
+assert.equal(vm.runInContext('fieldActivity(performance.now()).count',sandbox),0);
+console.log('Grupos, cambio de filtros sin pérdida, unión sin duplicados y respuesta de animaciones: OK');
+const multi=boot('?live=1&lens=automatic');
+vm.runInContext(`
+ const catalog=[{id:'manual-a',name:'Manual',color:'#2567b2',keywords:[]}];
+ consumeMessage({type:'snapshot',settings:{categories:catalog,groups:[]},events:[],lenses:{agenda:{settings:{categories:[{id:'agenda-a',name:'Agenda',color:'#087e8b',keywords:[]}],groups:[]},events:[]},automatic:{settings:{categories:[],groups:[]},events:[]}}});
+ const event={id:'one',text:'Educación territorial',speaker:'Ponente',concepts:[{label:'Manual',theme:0}],categories:catalog,lenses:{automatic:{id:'one',text:'Educación territorial',concepts:[{label:'Escuelas',theme:0}],categories:[{id:'auto-a',name:'Aprendizaje',color:'#287a38',keywords:[]}],settings:{categories:[{id:'auto-a',name:'Aprendizaje',color:'#287a38',keywords:[]}],groups:[{id:'auto-0',name:'Educación',categories:['auto-a']}]},method:'deepseek-auto'},agenda:{id:'one',text:'Educación territorial',concepts:[{label:'Agenda',theme:0}],categories:[{id:'agenda-a',name:'Agenda',color:'#087e8b',keywords:[]}],settings:{categories:[{id:'agenda-a',name:'Agenda',color:'#087e8b',keywords:[]}],groups:[]}}}};
+ consumeMessage({type:'event',event});
+`,multi);
+assert.equal(vm.runInContext('[...nodes.values()][0].label',multi),'Escuelas');
+assert.equal(vm.runInContext('namedGroups[0].name',multi),'Educación');
+vm.runInContext("switchLens('manual')",multi);
+assert.equal(vm.runInContext('[...nodes.values()][0].label',multi),'Manual');
+vm.runInContext("switchLens('agenda')",multi);
+assert.equal(vm.runInContext('[...nodes.values()][0].label',multi),'Agenda');
+vm.runInContext("switchLens('automatic');for(const mode of Object.keys(modes)){setView(mode);render(performance.now())}",multi);
+assert.equal(vm.runInContext('[...nodes.values()][0].label',multi),'Escuelas');
+vm.runInContext("consumeMessage({type:'reset'})",multi);
+assert.equal(vm.runInContext('categoryIds.length',multi),0);
+console.log('Tres lecturas paralelas, constelaciones emergentes, seis vistas y reinicio: OK');
+// The streamgraph changes only with data and uses trailing evidence, not random waves.
+const river=boot('?live=1');
+vm.runInContext(`
+ const catalog=[{id:'a',name:'Agua',color:'#087e8b',keywords:[]},{id:'b',name:'Datos',color:'#2567b2',keywords:[]}];
+ applyCategories(catalog);
+ window.minambiente.ingest({id:'r1',text:'Agua',categories:catalog,concepts:[{label:'Agua',theme:0}]});
+ streamFrame(1000);
+`,river);
+assert.equal(vm.runInContext('streamData().matrix[0][39]',river),1);
+assert.equal(vm.runInContext('streamFrame(1000).matrix[0][39]',river),0);
+assert.equal(vm.runInContext('streamFrame(2100).matrix[0][39]',river),1);
+const settled=vm.runInContext('JSON.stringify(streamFrame(4000).matrix)',river);
+assert.equal(vm.runInContext('JSON.stringify(streamFrame(8000).matrix)',river),settled);
+vm.runInContext(`window.minambiente.ingest({id:'r2',text:'Datos',categories:catalog,concepts:[{label:'Datos',theme:1}]})`,river);
+assert.equal(vm.runInContext('streamData().matrix[0][39]',river),.5);
+assert.equal(vm.runInContext('streamData().matrix[1][39]',river),.5);
+vm.runInContext(`streamCursor='r1';streamState=null;streamgraph(9000);window.minambiente.ingest({id:'r3',text:'Datos de nuevo',categories:catalog,concepts:[{label:'Datos',theme:1}]})`,river);
+assert.equal(vm.runInContext('streamCut()',river),1);
+assert.equal(vm.runInContext('streamData().matrix[1][39]',river),0);
+vm.runInContext("document.getElementById('streamLive').onclick()",river);
+assert.equal(vm.runInContext('streamCut()',river),3);
+vm.runInContext("selectedCategories=new Set(['a']);rebuildGroup();streamgraph(10000)",river);
+assert.equal(vm.runInContext('streamData().matrix[1][39]',river),0);
+// A new emerging category gains its own band without changing prior category IDs.
+vm.runInContext(`selectedCategories=null;const expanded=[...catalog,{id:'c',name:'Educación',color:'#7852ae',keywords:[]}];window.minambiente.ingest({id:'r4',text:'Escuelas',categories:expanded,concepts:[{label:'Escuelas',theme:2}]});streamFrame(11000);streamgraph(12500)`,river);
+assert.equal(vm.runInContext('streamData().matrix.length',river),3);
+assert.ok(vm.runInContext('streamData().matrix[2][39]',river)>0);
+vm.runInContext('clearLive();streamgraph(13000)',river);
+assert.equal(vm.runInContext('streamData().rows.length',river),0);
+console.log('Río de temas: transición, estabilidad, media temporal, revisión histórica y categorías emergentes: OK');
+const dense=boot('?live=1');
+vm.runInContext(`
+ const denseCatalog=Array.from({length:12},(_,i)=>({id:'dense-'+i,name:'Categoría extensa de prueba número '+i,color:'#2567b2',keywords:[]}));
+ applyCategories(denseCatalog);
+ for(let i=0;i<120;i++)window.minambiente.ingest({id:'dense-'+i,text:'Intervención '+i,categories:denseCatalog,concepts:Array.from({length:10},(_,j)=>({label:'Descripción excesivamente larga de un detalle '+i+' '+j,theme:i%12}))});
+ document.getElementById('labelDensity').value='3';setView('radial');radial(performance.now());
+`,dense);
+assert.ok(vm.runInContext('nodes.size',dense)>100);
+assert.ok(vm.runInContext('radialPlan().groups.length',dense)<=6);
+assert.ok(vm.runInContext('radialPlan().groups.every(g=>g.concepts.length<=3)',dense));
+const stableKeys=vm.runInContext('JSON.stringify(radialPlan().groups.map(g=>g.concepts.map(n=>n.key)))',dense);
+vm.runInContext('radial(performance.now()+5000)',dense);
+assert.equal(vm.runInContext('JSON.stringify(radialPlan().groups.map(g=>g.concepts.map(n=>n.key)))',dense),stableKeys);
+assert.ok(vm.runInContext('radialGeometry().groups.every(g=>g.leaves.filter(l=>l.box).every(l=>l.x>=0&&l.x<W&&l.y>=70&&l.y<H-60))',dense));
+assert.ok(vm.runInContext("textWidth(fitText('Una descripción demasiado extensa para este espacio de proyección',120,14),14)<=120",dense));
+vm.runInContext('W=760;H=420;radial(performance.now());',dense);
+assert.ok(vm.runInContext('radialPlan().groups.length<=4',dense));
+assert.ok(vm.runInContext('radialGeometry().groups.every(g=>g.leaves.filter(l=>l.box).every(l=>l.y>=70&&l.y<H-60))',dense));
+const originalKeys=vm.runInContext('radialPlan().groups.map(g=>g.g).join()',dense);
+vm.runInContext("document.getElementById('nextThemes').onclick();radial(performance.now())",dense);
+assert.notEqual(vm.runInContext('radialPlan().groups.map(g=>g.g).join()',dense),originalKeys);
+assert.ok(vm.runInContext('nodes.size',dense)>100);
+console.log('Mapa denso: presupuesto, posiciones estables, límites de pantalla, etiquetas breves y paginación sin pérdida: OK');
+const originalRadial=boot('?live=1');
+vm.runInContext('for(let i=0;i<5;i++)step();radial(performance.now())',originalRadial);
+assert.ok(vm.runInContext('radialGeometry().groups.length',originalRadial)>=4);
+assert.ok(vm.runInContext('radialGeometry().groups.reduce((sum,g)=>sum+g.leaves.filter(l=>l.box).length,0)',originalRadial)>=9);
+assert.ok(vm.runInContext(`(()=>{const p=radialGeometry();return p.groups.find(g=>g.g===0).ay<p.cy&&p.groups.find(g=>g.g===1).ax>p.cx&&p.groups.find(g=>g.g===3).ay>p.cy&&p.groups.find(g=>g.g===4).ax<p.cx})()`,originalRadial));
+for(const instance of [originalRadial,dense]){
+ const collisionFree=vm.runInContext(`(()=>{const p=radialGeometry(),boxes=p.boxes.slice(1);return boxes.every((a,i)=>a.x>=20&&a.y>=78&&a.x+a.w<=W-19&&a.y+a.h<=H-62&&boxes.slice(i+1).every(b=>!(a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y)))})()`,instance);
+ assert.ok(collisionFree);
+ const snapshot=vm.runInContext('JSON.stringify(radialGeometry().groups.map(g=>[g.ax,g.ay,g.leaves.map(l=>[l.x,l.y,l.box])]))',instance);
+ vm.runInContext('radial(performance.now()+1000)',instance);
+ assert.equal(vm.runInContext('JSON.stringify(radialGeometry().groups.map(g=>[g.ax,g.ay,g.leaves.map(l=>[l.x,l.y,l.box])]))',instance),snapshot);
+}
+console.log('Radial original: distribución circular, ejemplo inicial legible, cajas sin colisiones y posiciones estables: OK');
+const themed=boot('?live=1');
+vm.runInContext('for(let i=0;i<5;i++)step();radial(performance.now())',themed);
+const stateBefore=vm.runInContext('JSON.stringify({concepts:[...nodes.values()].map(n=>[n.key,n.count]),positions:radialGeometry().groups.map(g=>[g.ax,g.ay])})',themed);
+vm.runInContext("consumeMessage({type:'display',theme:'dark'})",themed);
+assert.equal(vm.runInContext('document.documentElement.dataset.theme',themed),'dark');
+assert.equal(vm.runInContext("paintColor('#f7faf8')",themed),'#071a20');
+assert.equal(vm.runInContext("paintColor('#24463c')",themed),'#e0eee8');
+assert.equal(vm.runInContext("paintColor('#f7faf8c9')",themed),'#071a20c9');
+assert.notEqual(vm.runInContext("paintColor('#101010')",themed),'#101010');
+for(const mode of ['radial','sunburst','flow','particles','field','constellation','stream'])vm.runInContext(`setView('${mode}');render(performance.now())`,themed);
+assert.equal(vm.runInContext('JSON.stringify({concepts:[...nodes.values()].map(n=>[n.key,n.count]),positions:radialGeometry().groups.map(g=>[g.ax,g.ay])})',themed),stateBefore);
+vm.runInContext("setView('particles');mapEntered=123;consumeMessage({type:'display',view:'particles',theme:'light'})",themed);
+assert.equal(vm.runInContext('mapEntered',themed),123);
+assert.equal(vm.runInContext("paintColor('#087e8b')",themed),'#087e8b');
+assert.equal(vm.runInContext('document.documentElement.dataset.theme',themed),'light');
+console.log('Temas claro/oscuro: siete vistas, colores adaptados y cambio sin reiniciar datos o animaciones: OK');
+
+// Projection panel: K works independently of H and all seven view modes.
+const projection=boot('?live=1');
+function key(instance,key,extra={}){instance.document.listeners.keydown({key,code:key===' '?'Space':'Key'+key.toUpperCase(),target:{tagName:'BODY'},preventDefault(){},...extra})}
+assert.equal(vm.runInContext('textPanelVisible()',projection),true);
+key(projection,'h');
+assert.equal(vm.runInContext('textPanelVisible()',projection),false);
+key(projection,'k');
+assert.equal(vm.runInContext('textPanelVisible()',projection),true);
+assert.equal(projection.document.getElementById('textPanel').getAttribute('aria-hidden'),'false');
+assert.ok(projection.document.body.classList.contains('clean'));
+assert.ok(projection.document.body.classList.contains('text-panel-open'));
+for(const mode of ['radial','sunburst','flow','particles','field','constellation','stream']){
+ vm.runInContext("setView('"+mode+"');render(performance.now())",projection);
+ assert.equal(vm.runInContext('textPanelVisible()',projection),true);
+}
+vm.runInContext("window.minambiente.ingest({id:'projection-1',text:'El agua conecta los territorios',concepts:[{label:'Agua',theme:0}]})",projection);
+assert.ok(projection.document.getElementById('quote').textContent.includes('El agua conecta los territorios'));
+key(projection,'K');
+assert.equal(vm.runInContext('textPanelVisible()',projection),false);
+key(projection,'h');
+assert.equal(vm.runInContext('textPanelVisible()',projection),false);
+for(const extra of [{target:{tagName:'INPUT'}},{target:{tagName:'TEXTAREA'}},{target:{tagName:'SELECT'}},{target:{tagName:'DIV',isContentEditable:true}},{ctrlKey:true},{altKey:true},{metaKey:true},{repeat:true}])key(projection,'k',extra);
+assert.equal(vm.runInContext('textPanelVisible()',projection),false);
+projection.document.getElementById('toggleTextPanel').onclick();
+assert.equal(vm.runInContext('textPanelVisible()',projection),true);
+assert.equal(projection.document.getElementById('toggleTextPanel').getAttribute('aria-pressed'),'true');
+assert.equal(vm.runInContext('nodes.size',projection),1);
+console.log('Panel de texto: K/H independientes, siete vistas, texto entrante, botón accesible y protección al escribir: OK');

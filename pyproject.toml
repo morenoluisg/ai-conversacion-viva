@@ -29,4 +29,4 @@ conversacion-viva = "minambiente_live.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-minambiente_live = ["static/*.html", "static/*.js"]
+minambiente_live = ["static/*.html", "static/*.js", "static/*.txt", "static/*.css"]

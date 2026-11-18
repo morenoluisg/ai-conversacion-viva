@@ -1,85 +1,90 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const sid=localStorage.getItem('minambiente-session')||('charla-'+crypto.randomUUID().slice(0,8));
+const requestedSession=new URLSearchParams(location.search).get('session');
+const sid=requestedSession&&/^[A-Za-z0-9_-]{1,64}$/.test(requestedSession)?requestedSession:localStorage.getItem('minambiente-session')||('charla-'+crypto.randomUUID().slice(0,8));
 localStorage.setItem('minambiente-session',sid);
 const channel=new BroadcastChannel('minambiente-'+sid);
 const wsURL=path=>(location.protocol==='https:'?'wss://':'ws://')+location.host+path;
-$('open').href='/visual?live=1&session='+encodeURIComponent(sid);
+$('open').href='/visual?live=1&lens=agenda&session='+encodeURIComponent(sid);
 $('session').textContent='Sesión: '+sid;
 $('api').textContent='POST '+location.origin+'/api/sessions/'+sid+'/text   {"text":"Agua y biodiversidad","speaker":"Ponente"}';
-let config={},socket=null,context=null,worklet=null,streams=[],sources=[],capturing=false,stopping=false,flushResolve=null,stopResolve=null,readyResolve=null;
+let capturing=false;
 function status(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error)}
-function sourceHint(){const val=$('source').value;$('includeMic').disabled=val==='mic';$('sourceHint').textContent=val==='mic'?'Usa el micrófono del salón o de tu computador.':val==='tab'?'En el selector elige la pestaña de Teams y marca Compartir audio.':'En el selector elige Pantalla completa y Compartir audio del sistema, si el navegador lo ofrece.'}
-function providerHint(){const val=$('provider').value;$('warmup').disabled=capturing||val!=='local';$('providerHint').textContent=val==='local'?'Modelo '+(config.model||'base')+'. Procesa bloques de unos 6 segundos. La primera preparación descarga el modelo.':'Audio enviado a Deepgram. Requiere una clave configurada en el archivo .env del servidor.'}
-$('source').onchange=sourceHint;$('provider').onchange=providerHint;sourceHint();
-fetch('/api/config').then(r=>r.json()).then(data=>{config=data;$('provider').value=data.default_stt;providerHint();$('conceptHint').textContent=data.concept_provider==='ollama'?'Conceptos: Ollama local, con reglas de respaldo si no responde.':'Conceptos: reglas del vocabulario ambiental. Puedes activar Ollama en .env.';status('Servidor disponible. Elige la fuente y abre la visualización.');}).catch(()=>status('No se puede acceder al servidor local.',true));
-function controls(active){capturing=active;$('start').disabled=active;$('stop').disabled=!active;$('source').disabled=active;$('provider').disabled=active;$('reset').disabled=active;$('includeMic').disabled=active||$('source').value==='mic';providerHint()}
-async function cleanup(){for(const stream of streams)for(const track of stream.getTracks())track.stop();streams=[];for(const node of sources){try{node.disconnect()}catch{}}sources=[];if(worklet){try{worklet.disconnect()}catch{}}worklet=null;if(context){try{await context.close()}catch{}}context=null;$('bar').style.width='0%'}
-function waitSocket(ws){return new Promise((resolve,reject)=>{ws.addEventListener('open',resolve,{once:true});ws.addEventListener('error',()=>reject(Error('No se pudo abrir el canal de audio.')),{once:true});});}
-async function start(){
-  if(capturing)return;
-  if(!navigator.mediaDevices?.getUserMedia) return status('Abre esta página en Chrome o Edge en localhost.',true);
-  controls(true);stopping=false;status('Selecciona la fuente y concede acceso al audio.');
-  try{
-    const src=$('source').value;
-    if(src!=='mic'){
-      if(!navigator.mediaDevices.getDisplayMedia)throw Error('Este navegador no permite compartir audio de pantalla. Prueba Chrome o Edge.');
-      const shared=await navigator.mediaDevices.getDisplayMedia({video:{displaySurface:src==='tab'?'browser':'monitor'},audio:{suppressLocalAudioPlayback:false},systemAudio:'include',selfBrowserSurface:'exclude',surfaceSwitching:'exclude'});
-      streams.push(shared);
-      if(!shared.getAudioTracks().length)throw Error('La fuente no incluye audio. Vuelve a elegir la pestaña o pantalla y activa Compartir audio. Si no aparece, usa Teams web.');
-    }
-    if(src==='mic'||$('includeMic').checked){streams.push(await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false}));}
-    for(const stream of streams)for(const track of stream.getTracks())track.onended=()=>{if(capturing&&!stopping)stop()};
-    context=new AudioContext({sampleRate:48000});await context.resume();
-    await context.audioWorklet.addModule('/static/audio-worklet.js');
-    socket=new WebSocket(wsURL('/ws/audio/'+sid));socket.binaryType='arraybuffer';
-    const ws=socket;
-    const ready=new Promise((resolve,reject)=>{readyResolve={resolve,reject};});ready.catch(()=>{});
-    ws.onmessage=event=>{const msg=JSON.parse(event.data);
-      if(msg.type==='ready'){readyResolve?.resolve();readyResolve=null;status('Capturando audio. La visualización recibirá texto confirmado.');}
-      if(msg.type==='status')status(msg.message);
-      if(msg.type==='partial')$('partial').textContent=msg.text;
-      if(msg.type==='transcript')status('Texto reconocido. Analizando conceptos…');
-      if(msg.type==='published')status('Texto y conceptos incorporados a la pantalla.'+(msg.pending?' Pendientes: '+msg.pending:''));
-      if(msg.type==='stopped'){stopResolve?.();stopResolve=null;}
-      if(msg.type==='error'){status(msg.message,true);readyResolve?.reject(Error(msg.message));readyResolve=null;stopResolve?.();stopResolve=null;cleanup().then(()=>controls(false));}
-    };
-    ws.onclose=()=>{readyResolve?.reject(Error('La conexión de audio se cerró.'));readyResolve=null;stopResolve?.();stopResolve=null;if(capturing&&!stopping){status('La conexión terminó. La captura está detenida.',true);cleanup().then(()=>controls(false));}};
-    await waitSocket(ws);
-    ws.send(JSON.stringify({provider:$('provider').value,sample_rate:16000}));
-    status('Preparando transcripción. Espera la confirmación antes de hablar.');
-    await ready;
-    worklet=new AudioWorkletNode(context,'pcm16-capture',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1]});
-    worklet.port.onmessage=event=>{const data=event.data;if(data.flushed){flushResolve?.();flushResolve=null;return}if(data.pcm&&ws.readyState===WebSocket.OPEN){if(ws.bufferedAmount>1024*1024){status('El envío de audio está retrasado. Deteniendo para evitar pérdida de sincronía.',true);stop();return}ws.send(data.pcm);$('bar').style.width=Math.min(100,data.rms*500)+'%';$('signal').textContent=data.rms>.001?'Audio detectado.':'Sin señal de voz. Comprueba Compartir audio y el micrófono.';}};
-    // Solo conectamos las pistas de audio. El video requerido por el selector nunca se envía.
-    const gain=1/Math.max(1,streams.length);
-    for(const stream of streams){const onlyAudio=new MediaStream(stream.getAudioTracks()),source=context.createMediaStreamSource(onlyAudio),level=context.createGain();level.gain.value=gain;source.connect(level);level.connect(worklet);sources.push(source,level);}
-    worklet.connect(context.destination); // el procesador entrega ceros, evita eco.
-  }catch(error){readyResolve=null;if(socket){try{socket.close()}catch{}}await cleanup();controls(false);status(error.message||String(error),true)}
-}
-async function stop(){
-  if(!capturing||stopping)return;
-  stopping=true;if(readyResolve){readyResolve.reject(Error('Captura cancelada antes de iniciar.'));readyResolve=null;socket?.close();await cleanup();controls(false);stopping=false;return}$('stop').disabled=true;status('Deteniendo captura y procesando el último fragmento…');
-  const ws=socket;
-  if(worklet){await Promise.race([new Promise(r=>{flushResolve=r;worklet.port.postMessage('flush')}),new Promise(r=>setTimeout(r,750))]);}
-  await cleanup();
-  if(ws&&ws.readyState===WebSocket.OPEN){
-    const stopped=new Promise(r=>{stopResolve=r});ws.send(JSON.stringify({type:'stop'}));
-    await Promise.race([stopped,new Promise(r=>setTimeout(r,120000))]);
-    if(stopResolve){status('La captura terminó, pero el servidor sigue procesando. Revisa el texto exportado antes de cerrar.',true);stopResolve=null;}
-    else status('Captura detenida. Puedes continuar o exportar la sesión.');
-    try{ws.close()}catch{}
-  }
-  controls(false);stopping=false;
-}
-$('start').onclick=start;$('stop').onclick=stop;
-$('warmup').onclick=async()=>{$('warmup').disabled=true;status('Preparando Whisper local. La primera descarga puede tardar varios minutos.');try{const r=await fetch('/api/warmup',{method:'POST'}),data=await r.json();if(!r.ok)throw Error(data.detail||'No se pudo preparar el modelo.');status('Whisper local preparado. Puedes iniciar la captura.')}catch(e){status(e.message,true)}finally{providerHint()}};
-$('view').onchange=()=>channel.postMessage({type:'view',view:$('view').value});
+const audioClient=window.initAudioCapture({session:sid,onState:active=>{capturing=active}});
+$('view').onchange=()=>sendDisplay({view:$('view').value});
 function addTranscript(ev){const p=document.createElement('p'),small=document.createElement('small');small.textContent=ev.speaker+' · '+(ev.method||'')+'\n';p.append(small,document.createTextNode(ev.text));$('transcript').append(p);while($('transcript').children.length>150)$('transcript').firstChild.remove();$('transcript').scrollTop=$('transcript').scrollHeight;}
 let viewer,retry;
-function connectViewer(){viewer=new WebSocket(wsURL('/ws/view/'+sid));viewer.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==='snapshot'){$('transcript').replaceChildren();m.events.forEach(addTranscript)}if(m.type==='event')addTranscript(m.event);if(m.type==='reset'){$('transcript').replaceChildren();$('partial').textContent=''}};viewer.onclose=()=>{retry=setTimeout(connectViewer,1500)}}connectViewer();
+function connectViewer(){viewer=new WebSocket(wsURL('/ws/view/'+sid));viewer.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==='snapshot'){if(m.display?.theme)$('backgroundTheme').value=m.display.theme;$('transcript').replaceChildren();m.events.forEach(addTranscript);if(m.lenses)renderLenses(m.lenses)}if(m.type==='display'&&m.theme){$('backgroundTheme').value=m.theme;$('themeStatus').textContent='Fondo '+(m.theme==='dark'?'oscuro':'claro')+' aplicado a la sesión.'}if(m.type==='event'){addTranscript(m.event);if(m.event.lenses)renderLenses(Object.fromEntries(Object.entries(m.event.lenses).map(([key,event])=>[key,{settings:event.settings,events:[event]}])));for(const c of m.event.categories||[]){if(!categorySettings.categories.some(x=>x.id===c.id)){categorySettings.categories.push(c);renderCategories()}}}if(m.type==='reset'){$('transcript').replaceChildren();$('partial').textContent=''}};viewer.onclose=()=>{retry=setTimeout(connectViewer,1500)}}connectViewer();
 setInterval(()=>{if(viewer?.readyState===WebSocket.OPEN)viewer.send('ping')},20000);
 $('sendText').onclick=async()=>{const text=$('manual').value.trim();if(!text)return;try{const r=await fetch('/api/sessions/'+sid+'/text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});if(!r.ok)throw Error('No se pudo enviar el fragmento');$('manual').value='';status('Fragmento incorporado.')}catch(e){status(e.message,true)}};
 $('reset').onclick=async()=>{try{const r=await fetch('/api/sessions/'+sid,{method:'DELETE'});if(!r.ok)throw Error('No se pudo vaciar la sesión');status('Sesión vacía.')}catch(e){status(e.message,true)}};
 $('download').onclick=async()=>{const response=await fetch('/api/sessions/'+sid+'/events');if(!response.ok)return status('No se pudo exportar.',true);const data=await response.json();const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=sid+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),500)};
-window.addEventListener('beforeunload',()=>{for(const s of streams)for(const t of s.getTracks())t.stop();socket?.close();viewer?.close();channel.close()});
+window.addEventListener('beforeunload',()=>{audioClient.dispose();viewer?.close();channel.close()});
+
+let categorySettings={categories:[],agenda:'',emergent:false};
+async function categoryRequest(path,method='GET',body){const r=await fetch('/api/sessions/'+sid+path,{method,headers:{'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});const data=await r.json();if(!r.ok)throw Error(data.detail||'No se pudo guardar');return data;}
+function renderCategories(){
+ renderNamedGroups();
+ $('categoryList').replaceChildren();$('projectionCategories').replaceChildren();
+ for(const c of categorySettings.categories){
+  const row=document.createElement('div');row.style.cssText='display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0';
+  const name=document.createElement('input');name.value=c.name;name.maxLength=60;name.setAttribute('aria-label','Nombre de categoría');name.style.width='220px';name.oninput=()=>c.name=name.value;
+  const color=document.createElement('input');color.type='color';color.value=c.color;color.style.cssText='width:65px;height:45px;padding:4px';color.setAttribute('aria-label','Color de '+c.name);color.oninput=()=>c.color=color.value;
+  const keywords=document.createElement('input');keywords.value=c.keywords.join(', ');keywords.placeholder='Palabras clave separadas por comas';keywords.setAttribute('aria-label','Palabras clave de '+c.name);keywords.style.width='300px';keywords.oninput=()=>c.keywords=keywords.value.split(',').map(k=>k.trim()).filter(Boolean);
+  const remove=document.createElement('button');remove.textContent='Quitar';remove.className='secondary';remove.onclick=()=>{categorySettings.categories=categorySettings.categories.filter(x=>x.id!==c.id);renderCategories()};
+  const origin=document.createElement('small');origin.textContent=c.origin==='emergent'?'Emergente':c.origin==='agenda'?'Agenda':'Manual';row.append(name,color,keywords,origin,remove);$('categoryList').append(row);
+  const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.value=c.id;check.checked=true;label.style.cssText='display:inline-block;margin:8px 16px 8px 0';label.append(check,document.createTextNode(' '+c.name));$('projectionCategories').append(label);
+ }
+}
+function settingsBody(){return {...categorySettings,agenda:$('agenda').value,emergent:$('emergent').checked}}
+categoryRequest('/settings').then(data=>{categorySettings=data;$('agenda').value=data.agenda;$('emergent').checked=data.emergent;renderCategories()}).catch(e=>$('categoryStatus').textContent=e.message);
+$('newCategory').onclick=()=>{if(categorySettings.categories.length>=24)return;categorySettings.categories.push({id:crypto.randomUUID(),name:'Nueva categoría',color:'#2567b2',keywords:[],origin:'manual'});renderCategories()};
+$('saveCategories').onclick=async()=>{try{categorySettings=await categoryRequest('/settings','PUT',settingsBody());renderCategories();$('categoryStatus').textContent='Configuración guardada y mapas actualizados.'}catch(e){$('categoryStatus').textContent=e.message}};
+$('inferCategories').onclick=async()=>{const b=$('inferCategories');b.disabled=true;$('categoryStatus').textContent='Analizando la agenda…';try{const data=await categoryRequest('/infer-categories','POST',settingsBody());categorySettings.categories=data.categories;renderCategories();$('categoryStatus').textContent='Propuesta lista para revisar. Pulsa Guardar categorías para aplicarla.'}catch(e){$('categoryStatus').textContent=e.message}finally{b.disabled=false}};
+$('allCategories').onclick=()=>document.querySelectorAll('#projectionCategories input').forEach(c=>c.checked=true);
+$('projectGroup').onclick=()=>{const ids=[...document.querySelectorAll('#projectionCategories input:checked')].map(c=>c.value);if(!ids.length){$('categoryStatus').textContent='Selecciona al menos una categoría.';return}const url=new URL('/visual',location.origin);url.search=new URLSearchParams({live:'1',session:sid,view:$('view').value,categories:ids.join(',')});window.open(url,'_blank','noopener')};
+
+let reportTimer;
+function displayReport(state){
+ const busy=state.status==='running';$('generateReport').disabled=busy||capturing;
+ $('reportStatus').textContent=state.message+(state.lens?' · Lectura: '+({agenda:'Agenda',manual:'Editable',automatic:'DeepSeek autónomo'}[state.lens]||state.lens):'')+(state.fragments?' · '+state.fragments+' fragmentos':'')+(state.warnings?.length?' · Algunas secciones no tienen análisis de IA; revisa las advertencias de los documentos.':'');
+ $('downloadReport').hidden=state.status!=='ready';
+ $('downloadReport').href='/api/sessions/'+sid+'/export/download';
+ clearTimeout(reportTimer);if(busy)reportTimer=setTimeout(checkReport,2000);
+}
+async function checkReport(){try{const r=await fetch('/api/sessions/'+sid+'/export/status');if(!r.ok)throw Error('No se pudo consultar el estado');displayReport(await r.json())}catch(e){$('reportStatus').textContent=e.message+'. Reintentando…';reportTimer=setTimeout(checkReport,5000)}}
+$('generateReport').onclick=async()=>{if(capturing){$('reportStatus').textContent='Detén la captura antes de generar el cierre.';return}$('generateReport').disabled=true;$('downloadReport').hidden=true;try{const r=await fetch('/api/sessions/'+sid+'/export?'+new URLSearchParams({lens:$('lensMode').value}),{method:'POST'}),data=await r.json();if(!r.ok)throw Error(data.detail||'No se pudo generar el informe');displayReport(data)}catch(e){$('reportStatus').textContent=e.message;$('generateReport').disabled=false}};
+checkReport();
+
+function renderNamedGroups(){
+ if(!categorySettings.groups?.length)categorySettings.groups=Array.from({length:3},(_,i)=>({id:'grupo-'+(i+1),name:'Grupo '+(i+1),categories:categorySettings.categories.filter((_,n)=>n%3===i).map(c=>c.id)}));
+ $('namedGroups').replaceChildren();
+ for(const group of categorySettings.groups){
+  group.categories=group.categories.filter(id=>categorySettings.categories.some(c=>c.id===id));
+  const box=document.createElement('fieldset'),name=document.createElement('input');name.value=group.name;name.maxLength=60;name.setAttribute('aria-label','Nombre del grupo');name.oninput=()=>group.name=name.value;box.append(name);box.style.cssText='border:1px solid #c8d7ce;padding:14px;margin:10px 0';
+  for(const c of categorySettings.categories){const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=group.categories.includes(c.id);check.onchange=()=>{group.categories=check.checked?[...new Set([...group.categories,c.id])]:group.categories.filter(id=>id!==c.id)};label.style.cssText='display:inline-block;margin:8px 12px 0 0;font-weight:400';label.append(check,document.createTextNode(' '+c.name));box.append(label)}
+  const link=document.createElement('a');link.className='button';link.target='_blank';link.rel='noopener';link.textContent='Guardar y abrir este grupo';link.href='/visual?'+new URLSearchParams({live:'1',session:sid,group:group.id});link.onclick=async event=>{event.preventDefault();const target=window.open('about:blank','_blank');if(target)target.opener=null;try{categorySettings=await categoryRequest('/settings','PUT',settingsBody());if(target)target.location.href=link.href;else $('categoryStatus').textContent='Grupo guardado. Permite las ventanas emergentes y vuelve a abrirlo.'}catch(e){target?.close();$('categoryStatus').textContent=e.message}};box.append(link);$('namedGroups').append(box);
+ }
+}
+$('openThreeGroups').onclick=async()=>{try{categorySettings=await categoryRequest('/settings','PUT',settingsBody());renderCategories();$('categoryStatus').textContent='Grupos guardados. Abre cada enlace de grupo para proyectarlos simultáneamente.';for(const group of categorySettings.groups){const link=[...$('namedGroups').querySelectorAll('a')].find(a=>new URL(a.href).searchParams.get('group')===group.id);if(link)link.style.outline='2px solid #287a38'}}catch(e){$('categoryStatus').textContent=e.message}};
+
+function renderLenses(lenses){
+ for(const [key,id] of [['agenda','agendaLensContent'],['automatic','autoLensContent']]){
+  const state=lenses[key];if(!state)continue;const box=$(id);box.replaceChildren();
+  if(!state.settings.categories.length){box.textContent=state.events?.at(-1)?.method==='deepseek-auto-unavailable'?'DeepSeek no respondió. Texto conservado; se reintentará con la próxima intervención.':'Aún no hay temas emergentes. Esperando intervenciones y respuesta de DeepSeek.';continue}
+  for(const group of state.settings.groups){const p=document.createElement('p');p.textContent=group.name+': '+group.categories.map(id=>state.settings.categories.find(c=>c.id===id)?.name).filter(Boolean).join(' · ');box.append(p)}
+  if(state.events?.at(-1)?.method==='deepseek-auto-unavailable'){const p=document.createElement('p');p.textContent='DeepSeek no respondió con una agrupación válida. La conversación se conserva y se reintentará con la próxima intervención.';box.append(p)}
+ }
+}
+$('lensMode').onchange=()=>{const mode=$('lensMode').value;$('open').href='/visual?'+new URLSearchParams({live:'1',session:sid,lens:mode});for(const [key,id] of [['agenda','agendaLens'],['manual','manualLens'],['automatic','autoLens']])$(id).hidden=key!==mode;sendDisplay({lens:mode})};
+$('openLens').onclick=()=>window.open('/visual?'+new URLSearchParams({live:'1',session:sid,lens:$('lensMode').value,view:$('view').value}),'_blank','noopener');
+fetch('/api/sessions/'+sid+'/lenses').then(r=>r.json()).then(renderLenses).catch(()=>{$('autoLensContent').textContent='No se pudo consultar el estado de las lecturas.'});
+
+$('remoteCapture').href='/captura?'+new URLSearchParams({session:sid});
+$('serverSetup').href='/servidor?'+new URLSearchParams({session:sid});
+$('captureLink').value=new URL($('remoteCapture').href,location.origin).href;
+$('copyCaptureLink').onclick=async()=>{try{await navigator.clipboard.writeText($('captureLink').value);$('linkStatus').textContent='Enlace copiado. Compártelo con el operador de audio.'}catch{$('captureLink').select();$('linkStatus').textContent='Selecciona y copia el enlace de captura.'}};
+
+async function sendDisplay(change){try{const r=await fetch('/api/sessions/'+sid+'/display',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(change)});if(!r.ok)throw Error('No se pudo actualizar la pantalla remota.');$('linkStatus').textContent='Pantallas de la sesión actualizadas.'}catch(e){$('linkStatus').textContent=e.message}}
+
+$('backgroundTheme').onchange=async()=>{const theme=$('backgroundTheme').value;$('themeStatus').textContent='Aplicando fondo…';try{const r=await fetch('/api/sessions/'+sid+'/display',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme})});if(!r.ok)throw Error('No se pudo cambiar el fondo.');$('themeStatus').textContent='Fondo '+(theme==='dark'?'oscuro':'claro')+' aplicado a los tableros.'}catch(e){$('themeStatus').textContent=e.message}};

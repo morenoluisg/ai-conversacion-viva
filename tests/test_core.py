@@ -109,7 +109,10 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(self.client.get('/').status_code, 200)
         self.assertIn('LIVE_MODE', self.client.get('/visual').text)
         with self.client.websocket_connect('/ws/view/test') as ws:
-            self.assertEqual(ws.receive_json(), {'type':'snapshot','events':[]})
+            snapshot = ws.receive_json()
+            self.assertEqual(snapshot['type'], 'snapshot')
+            self.assertEqual(snapshot['events'], [])
+            self.assertEqual(len(snapshot['settings']['categories']), 6)
             body = {'text':'Protejamos el agua y los bosques', 'id':'one'}
             r=self.client.post('/api/sessions/test/text',json=body)
             self.assertTrue(r.json()['accepted'])
@@ -153,3 +156,12 @@ class IntegrationTests(unittest.TestCase):
         asyncio.run(run())
 
 if __name__=='__main__': unittest.main()
+
+# Las pruebas de otros módulos no deben realizar inferencia remota implícita.
+def setUpModule():
+    global _automatic_patch
+    _automatic_patch = patch('minambiente_live.server.autonomous', side_effect=ValueError('offline test'))
+    _automatic_patch.start()
+
+def tearDownModule():
+    _automatic_patch.stop()

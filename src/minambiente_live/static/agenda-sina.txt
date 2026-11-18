@@ -1,0 +1,89 @@
+SINA CONECTA 2026
+I TECH SUMMIT AMBIENTAL  |  AGENDA OPERATIVA PARA EL EQUIPO ORGANIZADOR
+Lunes 23 de noviembre de 2026  ·  Salón Esmeralda, Hotel Tequendama  ·  Bogotá, D. C.
+Documento de coordinación: explica qué sucede en cada espacio, cómo se desarrolla y qué debe preparar el equipo. La programación conserva los horarios de la versión V3.
+Programación y desarrollo de cada espacio
+HORARIO
+ESPACIO / TÍTULO
+DESARROLLO Y DINÁMICA
+PREPARACIÓN CLAVE
+7:30–8:30
+Registro y experiencia de bienvenida
+Recepción y acreditación digital de asistentes. El equipo verifica inscripciones, orienta el acceso al salón y comparte el código QR para las interacciones posteriores. Quieneslleguentempranopodrán conocer los stands disponibles.
+Registro y soporte técnico; QR probado; personal de orientación.
+8:30–9:00
+Apertura institucional | Una visión compartida para el futuro ambiental
+Intervención del ministro de Ambiente para dar contexto al encuentro: la necesidad de conectar capacidades institucionales, datos, ciencia y tecnología para mejorar la gestión ambiental. Presentar el propósito de SINA CONECTA y la invitación a construir una visión conjunta del sector.
+Protocolo, atril, presentación de apertura y control de tiempo.
+9:00–10:15
+Conversación estratégica | De la tecnología a la transformación ambiental
+Panel moderado con HPE, Fortinet, Conservación Internacional, MinTIC, academia y DNP, según confirmaciones. Conversación sobre prioridades de transformación, barreras de interoperabilidad, capacidades digitales y resultados ambientales tangibles. Evitar exposiciones individuales extensas; reservar los últimos 15 minutos para preguntas y síntesis.
+Confirmar panelistas y moderador; acordar preguntas y turnos; micrófonos.
+10:15–10:45
+Casos que inspiran | Innovación desde los territorios
+CVC, Conservación Internacional y Universidad de los Andes presentan una experiencia conjunta o complementaria de tecnología aplicada a conservación y decisiones territoriales. Distribuir 20 minutos para mostrar el reto, la solución, su aplicación y aprendizajes, seguidos de 10 minutos de conversación y preguntas.
+Acordar relato compartido, vocerías y material audiovisual; evitar repetición.
+10:45–11:15
+Pausa para conectar | Encuentros y soluciones
+Receso para refrigerio, intercambio entre asistentes y recorrido por stands, si están habilitados. El equipo de sala prepara el siguiente bloque, verifica la demostración y recuerda el horario de retorno.
+Logística de refrigerio; señalización de stands; prueba de demo HP.
+11:15–11:45
+Tecnología en acción | Soluciones que habilitan la transformación
+Espacio de HP como patrocinador para demostrar una solución tecnológica aplicable a necesidades institucionales. Se propone dedicar 20 minutos a una demostración concreta, centrada en el problema que resuelve, y 10 minutos a preguntas, aprendizajes y transición. Evitarunapresentacióncomercial genérica.
+Solicitar nombre del speaker, caso de uso, demo y requisitos audiovisuales.
+11:45–12:35
+Diálogo aplicado | Del dato ambiental a la decisión inteligente
+Conversación entre IDEAM, ANLA y MinTIC sobre producción, intercambio y aprovechamiento de información ambiental para monitoreo, alertas, trámites y decisiones. El moderador plantea casos reales, pregunta por barreras de interoperabilidad y busca identificar capacidades que podrían articularse entre entidades. Se prevé participación del público por QR, pendiente de definir su ubicación exacta en el bloque.
+Confirmar voceros, enfoque, moderación y dinámica QR; bloque marcado para revisión en V3.
+12:35–12:40
+Pulso digital del sector | ¿Qué nos impide avanzar?
+Encuesta digital rápida para identificar las principales barreras y oportunidades de un SINA más conectado. Las respuestas se visualizan en pantalla y se recoge una lectura breve de los resultados como insumo de arranque para SINA NEXT 2035.
+Formulario y visualización en vivo; QR y plan alterno de conexión.
+12:40–1:35
+Almuerzo | Espacio de encuentro
+Pausa sin actividades de escenario. El equipo organizador verifica el montaje de la tarde, las presentaciones de patrocinadores y los equipos previstos para las mesas de prospectiva.
+Coordinación logística; revisión de dispositivos, conectividad y sala.
+1:35–2:05
+Ciberseguridad ambiental | Proteger la información es proteger el territorio
+Fortinet presenta por qué la gestión ambiental necesita capacidades de protección, prevención y respuesta frente a riesgos digitales. La intervención debe vincular seguridad de la información con continuidad de servicios, intercambio confiable de datos e infraestructura institucional; incluir un ejemplo aplicado y recomendaciones priorizables.
+Solicitar ponente, caso ambiental, recomendaciones y material de apoyo.
+2:05–2:45
+Inteligencia territorial | IA en acción para el sector ambiental
+Espacio ANLA–MinAmbiente para presentar experiencias o demostraciones de inteligencia artificial aplicadas a información, análisis territorial, participación y decisiones ambientales. Mostrar el problema de partida, cómo interviene la tecnología, qué resultado permite y cuáles son sus límites o requisitos de uso responsable.
+Coordinar voceros ANLA/MADS, demostraciones, mensajes y tiempos.
+2:45–3:15
+Territorios conectados | Infraestructura inteligente para un SINA sin fronteras
+OMADA muestra cómo redes empresariales, conectividad segura y administración centralizada pueden apoyar sedes regionales, operación distribuida y servicios ambientales. Priorizar un caso de uso o demostración de conectividad y gestión de redes, con espacio para preguntas. El tema debe mantenerse alineado con el portafolio real del fabricante.
+Validar speaker, alcance técnico y demostración; verificar identidad comercial.
+3:15–3:20
+Transición activa | Preparémonos para SINA NEXT 2035
+Los participantes se ubican en mesas de hasta cinco personas. El equipo verifica que cada mesa cuente con tableta o portátil, conexión al tablero digital y acceso a las instrucciones. Se explican roles y reglas básicas de participación.
+Hasta 10 mesas; dispositivos y enlaces operativos; facilitadores circulantes.
+3:20–3:25
+SINA NEXT 2035 | Imaginemos el futuro digital y ambiental
+Activación del laboratorio mediante video de apertura de aproximadamente 90 segundos, pregunta detonante sobre el futuro tecnológico y ambiental del SINA y una primera interacción individual en línea. El objetivo es pasar de escuchar a construir propuestas.
+Video y sonido; encuesta inicial; pantalla de resultados.
+3:25–3:40
+Laboratorio 1 | Tres futuros posibles
+Cada mesa examina escenarios alternativos para el SINA en 2035, con apoyo de una herramienta digital y, cuando esté autorizada, inteligencia artificial. Identifica riesgos, oportunidades y señales que podrían cambiar la gestión ambiental; registra sus hallazgos en el tablero común.
+Plantilla digital de escenarios, instrucciones y reglas de uso de IA.
+3:40–4:00
+Laboratorio 2 | El futuro desde los territorios
+Los cinco integrantes de cada mesa construyen una visión compartida del SINA en 2035 y formulan dos soluciones de alto impacto vinculadas a necesidades territoriales. La información se registra en campos estructurados para permitir su comparación y consolidación posterior.
+Tablero por mesa; facilitación para asegurar participación de todos.
+4:00–4:20
+Laboratorio 3 | La ruta de transformación
+Las mesas convierten sus ideas en una ruta inicial: capacidades necesarias, condiciones habilitantes, actores que podrían contribuir y primeros pasos sugeridos para 2027–2028. No se asignancompromisos oficiales sin validación institucional.
+Campos de ruta, dependencias y riesgos; revisión de propuestas.
+4:20–4:40
+Laboratorio 4 | Invierte en el futuro del SINA
+Se proyecta una galería digital de iniciativas. Los asistentes conocen propuestas de otras mesas y priorizan mediante votación individual en línea, con criterios previamente explicados. Los resultados se consolidan visualmente para identificar las apuestas de mayor respaldo.
+Galería, mecanismo de votación, criterios y consolidación en vivo.
+4:40–5:00
+Resultados y próximos pasos | De las ideas a una agenda sectorial
+Presentación de las visiones, prioridades e iniciativas emergentes del laboratorio. La OTIC explica cómo se sistematizarán y revisarán los resultados para alimentar una posible agenda sectorial de transformación digital. Aclarar expresamente que son insumos de prospectiva y no compromisos institucionales aprobados.
+Tablero de síntesis, responsable de resultados y mensaje de cierre OTIC.
+Validacionespendientes antes de publicar
+Confirmar la lista definitiva de panelistas, moderación y vocerías de IDEAM, ANLA y MinTIC.
+Definir si el QR del diálogo de 11:45–12:35 se usa dentro de la conversación o exclusivamente en el Pulso digital de 12:35–12:40, para evitar duplicidad.
+Verificar la duración y dinámica del bloque CVC–Conservación Internacional–Universidad de los Andes, y los contenidos finales de HP, Fortinet y OMADA.
