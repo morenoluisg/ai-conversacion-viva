@@ -1,0 +1,11 @@
+.demo-note{width:100%;font-size:12px;color:var(--muted)}
+#demoAnalysis{font-size:12px;color:var(--muted)}
+.demo-dialog{width:min(680px,94vw);max-height:88vh;overflow:auto;border:1px solid #b7cfc0;border-radius:12px;background:var(--bg);color:var(--ink);padding:24px}
+.demo-dialog::backdrop{background:#071a2099}
+.demo-dialog h2{margin:0 0 14px;font-size:23px}
+.demo-dialog p{line-height:1.5;font-size:14px}
+.demo-fields{display:grid;grid-template-columns:minmax(130px,210px) minmax(0,1fr);gap:10px 16px;align-items:center}
+.demo-fields input{width:100%;min-width:0;color:var(--ink);background:var(--bg);border:1px solid #b7cfc0;border-radius:5px}
+.demo-fields input[type=color]{max-width:100px;height:40px;padding:3px}
+.demo-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+@media(max-width:600px){.demo-fields{grid-template-columns:1fr}.demo-dialog{padding:18px}}

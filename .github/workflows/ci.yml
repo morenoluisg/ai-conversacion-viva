@@ -31,6 +31,10 @@ jobs:
       - run: node --check src/minambiente_live/static/operator.js
       - run: node --check src/minambiente_live/static/audio-worklet.js
       - run: node tests/test_worklet.mjs
+      - run: node tests/test_visual.mjs
+      - run: node tests/test_pages_demo.mjs
+      - run: node scripts/build-pages-demo.mjs
+      - run: git diff --exit-code -- docs/index.html docs/demo/Conversacion_Viva.html docs/demo-assets/branding.js docs/demo-assets/branding.css
   paquete:
     runs-on: ubuntu-latest
     steps:

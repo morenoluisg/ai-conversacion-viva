@@ -4,15 +4,17 @@ Aplicación local que convierte el audio de una conversación en texto y aliment
 
 La sección **Identidad y presentación** permite adaptar el nombre, organización, descripción, textos centrales, encabezado del panel y color a otros eventos. Los valores iniciales se definen con `APP_*` en `.env`; los cambios del panel se aplican por sesión a sus tableros e informes. Consulta [la guía de identidad](docs/uso.md#identidad-para-otros-eventos).
 
-Incluye seis vistas: **mapa radial, anillos temáticos, evolución temática, Colombia en puntos, corrientes y constelaciones**.
+Incluye siete vistas: **mapa radial, anillos temáticos, evolución temática, Colombia en puntos, corrientes, constelaciones y río de temas**.
 
 ## Demo en GitHub Pages
 
 Enlace de publicación: **https://morenoluisg.github.io/ai-conversacion-viva/**.
 
-La demo pública usa `docs/index.html`, una copia del HTML autónomo `MinAmbiente_Conversacion_Viva_v4.html`. Incluye conversación simulada, seis vistas, entrada manual y exportación JSON. GitHub Pages sirve archivos estáticos: para capturar audio del sistema y transcribir con Whisper sigue la instalación local que aparece abajo. El botón Micrófono de la demo depende del reconocimiento de voz del navegador; no utiliza el servidor local ni Whisper y su servicio puede requerir Internet.
+La demo pública se genera desde el tablero actual con `node scripts/build-pages-demo.mjs`. Incluye las siete vistas, tres lecturas de ejemplo, simulación del análisis de temas en segundo plano, identidad editable, fondos claro y oscuro, grupos, entrada manual y exportación JSON. Usa **F** para pantalla completa, **H** para los controles y **K** para el panel de texto. Los temas de la parte inferior tienen una leyenda separada y el mapa limita sus etiquetas para conservar legibilidad.
 
-La publicación se configura en **Settings → Pages → Deploy from a branch → main → /docs**. Al modificar `docs/index.html` y hacer push a `main`, GitHub vuelve a publicar la demo. `docs/.nojekyll` permite servir los archivos directamente. La carpeta `temp/` permanece excluida de Git; los cambios hechos allí deben copiarse a `docs/index.html` para publicarlos.
+GitHub Pages sirve archivos estáticos: la clasificación automática y su demora están simuladas, sin llamadas a DeepSeek o Deepgram. La identidad se edita desde **Identidad y presentación** y se aplica a la página actual; los valores iniciales vuelven al recargar. Para captura del sistema, transcripción con Whisper o Deepgram, configuración por `.env` e informes de cierre, utiliza la aplicación local. El botón Micrófono de la demo depende del reconocimiento de voz del navegador, cuyo servicio puede requerir Internet.
+
+La publicación se configura en **Settings → Pages → Deploy from a branch → main → /docs**. El generador actualiza `docs/index.html`, `docs/demo/Conversacion_Viva.html` y los recursos compartidos de identidad. Las opciones específicas de demostración viven en `docs/demo-assets/demo.js` y `demo.css`. Ejecuta el generador y `node tests/test_pages_demo.mjs` antes de hacer push a `main`. CI comprueba que los archivos generados sigan sincronizados con el tablero. `docs/.nojekyll` permite servir los archivos directamente. La carpeta `temp/` permanece excluida de Git.
 
 ## 1. Requisitos para una máquina nueva
 

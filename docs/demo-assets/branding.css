@@ -1,0 +1,7 @@
+button:not(.secondary),a.button:not(.secondary){background:var(--brand-accent,#287a38);border-color:var(--brand-accent,#287a38);color:var(--brand-ink,#fff)}
+.controls button:not(.active){background:transparent;color:var(--ink)}
+.controls button.active{background:var(--brand-accent,#287a38);border-color:var(--brand-accent,#287a38);color:var(--brand-ink,#fff)}
+#brandingFields{display:grid;grid-template-columns:minmax(140px,240px) minmax(0,1fr);gap:12px 20px;align-items:center}
+#brandingFields input{width:100%;min-width:0}
+#brandingFields input[type=color]{height:44px;max-width:100px;padding:3px}
+@media(max-width:650px){#brandingFields{grid-template-columns:minmax(0,1fr);gap:8px}}
