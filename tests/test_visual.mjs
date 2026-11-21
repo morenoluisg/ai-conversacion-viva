@@ -165,3 +165,53 @@ assert.equal(vm.runInContext('textPanelVisible()',projection),true);
 assert.equal(projection.document.getElementById('toggleTextPanel').getAttribute('aria-pressed'),'true');
 assert.equal(vm.runInContext('nodes.size',projection),1);
 console.log('Panel de texto: K/H independientes, siete vistas, texto entrante, botón accesible y protección al escribir: OK');
+
+// The shared identity updates text safely without resetting chart data or K/H.
+const branded=boot('?live=1');
+const identity={app_name:'Encuentro educativo',organization:'Escuela <b>abierta</b>',description:'Aprender juntos',center_top:'DIÁLOGO',center_bottom:'EDUCATIVO',panel_heading:'Ideas compartidas',accent_color:'#6438ab'};
+const bound=Object.keys(identity).map(key=>({dataset:{brand:key},textContent:''}));
+branded.document.querySelectorAll=selector=>selector==='[data-brand]'?bound:[];
+const properties={};branded.document.documentElement.style={setProperty:(key,value)=>properties[key]=value};
+branded.document.getElementById('appBranding').textContent=JSON.stringify(identity);
+vm.runInContext(fs.readFileSync('src/minambiente_live/static/branding.js','utf8'),branded);
+assert.equal(branded.document.title,identity.app_name);
+assert.equal(bound.find(el=>el.dataset.brand==='organization').textContent,identity.organization);
+assert.equal(properties['--brand-accent'],identity.accent_color);
+vm.runInContext('step();toggleControls();toggleTextPanel();radial(performance.now())',branded);
+const dataBefore=vm.runInContext('JSON.stringify(window.minambiente.getState())',branded);
+for(const mode of ['radial','sunburst','flow','particles','field','constellation','stream']){
+ vm.runInContext("setView('"+mode+"');render(performance.now())",branded);
+ vm.runInContext("consumeMessage({type:'branding',branding:{app_name:'Otra identidad'}})",branded);
+ assert.equal(branded.document.title,'Otra identidad');
+ assert.equal(vm.runInContext('textPanelVisible()',branded),true);
+}
+assert.equal(vm.runInContext('JSON.stringify(window.minambiente.getState())',branded),dataBefore);
+vm.runInContext("consumeMessage({type:'display',theme:'dark'})",branded);
+assert.equal(properties['--green'],'#96e5a5');
+vm.runInContext("consumeMessage({type:'display',theme:'light'})",branded);
+assert.equal(properties['--green'],identity.accent_color);
+branded.setBranding({...identity,accent_color:'#ffff00'});
+assert.equal(properties['--brand-ink'],'#102921');
+console.log('Identidad: etiquetas seguras, siete vistas, datos y panel conservados, fondos y contraste del color: OK');
+
+const asynchronous=boot('?live=1&lens=automatic');
+vm.runInContext(`
+ consumeMessage({type:'snapshot',settings:{categories:[],groups:[]},events:[],lenses:{automatic:{settings:{categories:[],groups:[]},events:[]}}});
+ const pending={id:'async-1',text:'Escuelas y aprendizaje',speaker:'Ponente',concepts:[],categories:[],lenses:{automatic:{id:'async-1',text:'Escuelas y aprendizaje',concepts:[],categories:[],settings:{categories:[],groups:[]},method:'analysis-pending'}}};
+ consumeMessage({type:'event',event:pending});
+`,asynchronous);
+assert.ok(asynchronous.document.getElementById('quote').textContent.includes('Escuelas y aprendizaje'));
+vm.runInContext(`
+ const categories=[{id:'edu',name:'Educación',color:'#287a38',keywords:[]}];
+ const completed={...pending,lenses:{automatic:{...pending.lenses.automatic,categories,concepts:[{label:'Escuelas',theme:0}],settings:{categories,groups:[]},method:'deepseek-auto'}}};
+ setView('stream');streamFrame(1000);const oldStart=start;
+ consumeMessage({type:'event_update',event:completed});
+ consumeMessage({type:'event_update',event:completed});
+`,asynchronous);
+assert.equal(vm.runInContext('events.length',asynchronous),1);
+assert.equal(vm.runInContext('rawEvents.length',asynchronous),1);
+assert.equal(vm.runInContext('selectedMentions()',asynchronous),1);
+assert.equal(vm.runInContext('start===oldStart',asynchronous),true);
+assert.equal(vm.runInContext('view',asynchronous),'stream');
+assert.ok(vm.runInContext('streamState!==null',asynchronous));
+console.log('Temas en segundo plano: texto inmediato, actualización sin duplicados y río sin reinicio: OK');

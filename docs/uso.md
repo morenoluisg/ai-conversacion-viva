@@ -118,6 +118,36 @@ Invoke-RestMethod -Method Post `
 
 La visualización recibe automáticamente el evento mediante `/ws/view/{session}`. Puedes cambiar la vista desde el panel sin tocar la pantalla proyectada. El servidor y las dos pestañas deben estar en el mismo equipo y origen (no mezcles `localhost` con `127.0.0.1`).
 
+## Transcripción y análisis en segundo plano
+
+La transcripción confirmada se guarda en el historial en memoria y se muestra inmediatamente. DeepSeek procesa los temas en una tarea separada: una respuesta lenta o fallida no detiene la captura. Los conceptos provisionales usan las categorías existentes; en la lectura automática inicial puede aparecer texto mientras se espera la primera clasificación.
+
+El panel muestra los fragmentos con temas pendientes y el tiempo del último análisis. El servidor limita cada clasificación en vivo a diez segundos y conserva el texto ante errores. Las actualizaciones reemplazan los conceptos del mismo fragmento, sin duplicar transcripciones ni menciones. El río conserva su animación y su posición de revisión temporal al recibirlas.
+
+Al detener el audio, el texto ya está incorporado y los temas pendientes continúan procesándose. Espera a que el indicador vuelva a cero antes de generar el cierre. Vaciar una sesión cancela su análisis pendiente y evita que reaparezcan fragmentos anteriores. El historial sigue siendo temporal: exporta la conversación antes de cerrar el servidor.
+
+La API `POST /api/sessions/{session}/text` confirma la incorporación sin esperar al modelo. Los clientes de `/ws/view/{session}` reciben `event` para el fragmento inicial y `event_update` con el mismo identificador para actualizar su clasificación. `/api/sessions/{session}/status` incluye `analysis.pending`, `analysis.last_seconds` y `analysis.failures`.
+
+## Identidad para otros eventos
+
+Abre **Identidad y presentación** en el panel de administración. Puedes configurar el nombre de la aplicación, la organización o evento, la descripción, las dos líneas del centro del mapa radial, el encabezado del panel de texto y el color de identidad. La vista previa muestra el borrador; **Aplicar identidad a la sesión** lo envía a los tableros abiertos. Los nuevos informes también incluyen esta identidad. Los conceptos y categorías conservan sus colores propios.
+
+Los cambios del panel duran durante la sesión en memoria del servidor. Para conservar valores entre reinicios, edita las variables `APP_*` del `.env` y reinicia la aplicación. **Cargar valores del .env** y **Cargar ejemplo ambiental** solo rellenan el formulario; pulsa **Aplicar** para publicarlos en la sesión.
+
+Ejemplo para un encuentro educativo:
+
+```dotenv
+APP_NAME="Diálogos de aprendizaje"
+APP_ORGANIZATION="Encuentro de educación"
+APP_DESCRIPTION="Ideas para aprender juntos"
+APP_CENTER_TOP="DIÁLOGO"
+APP_CENTER_BOTTOM="EDUCATIVO"
+APP_PANEL_HEADING="Ideas que estamos compartiendo"
+APP_ACCENT_COLOR="#6438ab"
+```
+
+La identidad se configura por sesión: cambiarla en una sesión no modifica las demás. Los valores de `.env` son el punto de partida para las sesiones nuevas. La demostración ambiental y sus categorías siguen disponibles por separado de la identidad. Las páginas estáticas de demostración en `docs/` conservan el ejemplo original.
+
 ## Proyectar el gráfico con el texto
 
 En la pantalla de visualización, **F** activa o desactiva la pantalla completa y **H** oculta o recupera los controles. Pulsa **K** para mostrar u ocultar el panel de texto de la conversación, incluso con los controles ocultos. También puedes usar el botón **Mostrar/Ocultar texto (K)**.

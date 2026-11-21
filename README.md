@@ -2,6 +2,8 @@
 
 Aplicación local que convierte el audio de una conversación en texto y alimenta una presentación interactiva. Recibe micrófono, audio compartido de Teams web o audio del sistema cuando el navegador lo permite.
 
+La sección **Identidad y presentación** permite adaptar el nombre, organización, descripción, textos centrales, encabezado del panel y color a otros eventos. Los valores iniciales se definen con `APP_*` en `.env`; los cambios del panel se aplican por sesión a sus tableros e informes. Consulta [la guía de identidad](docs/uso.md#identidad-para-otros-eventos).
+
 Incluye seis vistas: **mapa radial, anillos temáticos, evolución temática, Colombia en puntos, corrientes y constelaciones**.
 
 ## Demo en GitHub Pages
@@ -297,6 +299,8 @@ Los puntos y las líneas son una representación artística de actividad temáti
 Verificación de las seis vistas, cambios de grupo y respuesta de las animaciones: `node tests/test_visual.mjs`.
 
 ## Tres lecturas independientes de la conversación
+
+Las transcripciones confirmadas se incorporan al historial y a los tableros antes de esperar al modelo. DeepSeek procesa los temas en segundo plano y actualiza el mismo fragmento, sin duplicar texto ni métricas. El panel muestra los temas pendientes; detener el audio conserva ese procesamiento. Espera a que los pendientes lleguen a cero para generar el cierre. Consulta [el funcionamiento y los mensajes de la API](docs/uso.md#transcripción-y-análisis-en-segundo-plano).
 
 La sección 3 presenta **Agenda SINA CONECTA**, **Editable** y **DeepSeek autónomo**. Las tres se construyen en paralelo a partir de las mismas intervenciones confirmadas. Cada tablero permite seleccionar la lectura y después su grupo en las seis vistas.
 

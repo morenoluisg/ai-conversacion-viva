@@ -11,7 +11,10 @@ class CategoryTests(unittest.TestCase):
         self.env = patch.dict(os.environ, {'CONCEPT_PROVIDER': 'rules'})
         self.env.start()
         self.client = TestClient(server.app)
-    def tearDown(self): self.env.stop()
+        self.client.__enter__()
+    def tearDown(self):
+        self.client.__exit__(None,None,None)
+        self.env.stop()
     def test_remove_reorder_and_custom_rules(self):
         self.client.post('/api/sessions/c/text', json={'text':'agua y biodiversidad'})
         body = self.client.get('/api/sessions/c/settings').json()
@@ -30,9 +33,14 @@ class CategoryTests(unittest.TestCase):
         self.assertEqual(self.client.put('/api/sessions/c/settings',json=body,headers={'Origin':'https://evil.example'}).status_code,403)
     def test_fallback_keeps_custom_categories(self):
         with patch.dict(os.environ,{'CONCEPT_PROVIDER':'deepseek'}), patch('minambiente_live.server.analyze',side_effect=ValueError('invalid')):
-            event=self.client.post('/api/sessions/c/text',json={'text':'agua'}).json()['event']
-            self.assertEqual(event['method'],'rules-fallback')
-            self.assertEqual(event['concepts'][0]['label'],'Agua')
+            with self.client.websocket_connect('/ws/view/c') as viewer:
+                viewer.receive_json()
+                event=self.client.post('/api/sessions/c/text',json={'text':'agua'}).json()['event']
+                self.assertIn(event['method'],('analysis-pending','rules-fallback'))
+                self.assertEqual(event['concepts'][0]['label'],'Agua')
+                update=viewer.receive_json()
+                while update['type']!='event_update': update=viewer.receive_json()
+                self.assertEqual(update['event']['method'],'rules-fallback')
     def test_agenda_failure_preserves_settings(self):
         body=self.client.get('/api/sessions/c/settings').json()
         body['agenda']='09:00 Educación ambiental'

@@ -8,13 +8,13 @@ const wsURL=path=>(location.protocol==='https:'?'wss://':'ws://')+location.host+
 $('open').href='/visual?live=1&lens=agenda&session='+encodeURIComponent(sid);
 $('session').textContent='Sesión: '+sid;
 $('api').textContent='POST '+location.origin+'/api/sessions/'+sid+'/text   {"text":"Agua y biodiversidad","speaker":"Ponente"}';
-let capturing=false;
+let capturing=false,analysisPending=0,reportBusy=false;
 function status(text,error=false){$('status').textContent=text;$('status').classList.toggle('error',error)}
-const audioClient=window.initAudioCapture({session:sid,onState:active=>{capturing=active}});
+const audioClient=window.initAudioCapture({session:sid,onState:active=>{capturing=active;$('generateReport').disabled=capturing||analysisPending>0||reportBusy}});
 $('view').onchange=()=>sendDisplay({view:$('view').value});
-function addTranscript(ev){const p=document.createElement('p'),small=document.createElement('small');small.textContent=ev.speaker+' · '+(ev.method||'')+'\n';p.append(small,document.createTextNode(ev.text));$('transcript').append(p);while($('transcript').children.length>150)$('transcript').firstChild.remove();$('transcript').scrollTop=$('transcript').scrollHeight;}
+function addTranscript(ev){const p=document.createElement('p'),small=document.createElement('small');p.dataset.eventId=ev.id;small.textContent=ev.speaker+' · '+(ev.method||'')+'\n';p.append(small,document.createTextNode(ev.text));$('transcript').append(p);while($('transcript').children.length>150)$('transcript').firstChild.remove();$('transcript').scrollTop=$('transcript').scrollHeight;}
 let viewer,retry;
-function connectViewer(){viewer=new WebSocket(wsURL('/ws/view/'+sid));viewer.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==='snapshot'){if(m.display?.theme)$('backgroundTheme').value=m.display.theme;$('transcript').replaceChildren();m.events.forEach(addTranscript);if(m.lenses)renderLenses(m.lenses)}if(m.type==='display'&&m.theme){$('backgroundTheme').value=m.theme;$('themeStatus').textContent='Fondo '+(m.theme==='dark'?'oscuro':'claro')+' aplicado a la sesión.'}if(m.type==='event'){addTranscript(m.event);if(m.event.lenses)renderLenses(Object.fromEntries(Object.entries(m.event.lenses).map(([key,event])=>[key,{settings:event.settings,events:[event]}])));for(const c of m.event.categories||[]){if(!categorySettings.categories.some(x=>x.id===c.id)){categorySettings.categories.push(c);renderCategories()}}}if(m.type==='reset'){$('transcript').replaceChildren();$('partial').textContent=''}};viewer.onclose=()=>{retry=setTimeout(connectViewer,1500)}}connectViewer();
+function connectViewer(){viewer=new WebSocket(wsURL('/ws/view/'+sid));viewer.onmessage=e=>{const m=JSON.parse(e.data);if(m.branding)window.setBranding(m.branding);if(m.analysis)showAnalysis(m.analysis);if(m.type==='event_update'){const row=[...$('transcript').children].find(p=>p.dataset.eventId===m.event.id);if(row?.firstChild)row.firstChild.textContent=m.event.speaker+' · '+m.event.method+'\n';if(m.event.lenses)renderLenses(Object.fromEntries(Object.entries(m.event.lenses).map(([key,event])=>[key,{settings:event.settings,events:[event]}])))}if(m.type==='snapshot'){if(m.display?.theme)$('backgroundTheme').value=m.display.theme;$('transcript').replaceChildren();m.events.forEach(addTranscript);if(m.lenses)renderLenses(m.lenses)}if(m.type==='display'&&m.theme){$('backgroundTheme').value=m.theme;$('themeStatus').textContent='Fondo '+(m.theme==='dark'?'oscuro':'claro')+' aplicado a la sesión.'}if(m.type==='event'){addTranscript(m.event);if(m.event.lenses)renderLenses(Object.fromEntries(Object.entries(m.event.lenses).map(([key,event])=>[key,{settings:event.settings,events:[event]}])));for(const c of m.event.categories||[]){if(!categorySettings.categories.some(x=>x.id===c.id)){categorySettings.categories.push(c);renderCategories()}}}if(m.type==='reset'){$('transcript').replaceChildren();$('partial').textContent=''}};viewer.onclose=()=>{retry=setTimeout(connectViewer,1500)}}connectViewer();
 setInterval(()=>{if(viewer?.readyState===WebSocket.OPEN)viewer.send('ping')},20000);
 $('sendText').onclick=async()=>{const text=$('manual').value.trim();if(!text)return;try{const r=await fetch('/api/sessions/'+sid+'/text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});if(!r.ok)throw Error('No se pudo enviar el fragmento');$('manual').value='';status('Fragmento incorporado.')}catch(e){status(e.message,true)}};
 $('reset').onclick=async()=>{try{const r=await fetch('/api/sessions/'+sid,{method:'DELETE'});if(!r.ok)throw Error('No se pudo vaciar la sesión');status('Sesión vacía.')}catch(e){status(e.message,true)}};
@@ -37,6 +37,18 @@ function renderCategories(){
  }
 }
 function settingsBody(){return {...categorySettings,agenda:$('agenda').value,emergent:$('emergent').checked}}
+let brandingOptions=null;
+const brandingLabels={app_name:'Nombre de la aplicación',organization:'Organización o evento',description:'Descripción de presentación',center_top:'Texto central · primera línea',center_bottom:'Texto central · segunda línea',panel_heading:'Encabezado del panel de texto',accent_color:'Color de identidad'};
+const brandingLimits={app_name:80,organization:120,description:180,center_top:24,center_bottom:24,panel_heading:100};
+function brandingDraft(){return Object.fromEntries(Object.keys(brandingLabels).map(key=>[key,$('brand_'+key).value.trim()]))}
+function previewBranding(){const value=brandingDraft();$('previewOrganization').textContent=value.organization;$('previewName').textContent=value.app_name;$('previewDescription').textContent=value.description;$('previewCenter').textContent=value.center_top+' / '+value.center_bottom;$('previewPanel').textContent=value.panel_heading;$('brandingPreview').style.borderColor=value.accent_color}
+function fillBranding(value){for(const key of Object.keys(brandingLabels))$('brand_'+key).value=value[key];previewBranding()}
+for(const [key,name] of Object.entries(brandingLabels)){const label=document.createElement('label'),input=document.createElement('input');label.htmlFor='brand_'+key;label.textContent=name;input.id='brand_'+key;input.type=key==='accent_color'?'color':'text';if(brandingLimits[key])input.maxLength=brandingLimits[key];input.required=true;input.oninput=previewBranding;$('brandingFields').append(label,input)}
+fillBranding(window.appBranding);
+categoryRequest('/branding').then(data=>{brandingOptions=data;fillBranding(data.current);window.setBranding(data.current)}).catch(e=>$('brandingStatus').textContent=e.message);
+$('defaultBranding').onclick=()=>{if(brandingOptions)fillBranding(brandingOptions.defaults)};
+$('environmentalBranding').onclick=()=>{if(brandingOptions)fillBranding(brandingOptions.environmental)};
+$('saveBranding').onclick=async()=>{const draft=brandingDraft();if(Object.values(draft).some(v=>!v)){$('brandingStatus').textContent='Completa todos los campos de identidad.';return}const button=$('saveBranding');button.disabled=true;try{const saved=await categoryRequest('/branding','PUT',draft);window.setBranding(saved);$('brandingStatus').textContent='Identidad aplicada a esta sesión y sus tableros. Se usará en los próximos informes.'}catch{$('brandingStatus').textContent='No se pudo guardar la identidad. Revisa los campos y la conexión.'}finally{button.disabled=false}};
 categoryRequest('/settings').then(data=>{categorySettings=data;$('agenda').value=data.agenda;$('emergent').checked=data.emergent;renderCategories()}).catch(e=>$('categoryStatus').textContent=e.message);
 $('newCategory').onclick=()=>{if(categorySettings.categories.length>=24)return;categorySettings.categories.push({id:crypto.randomUUID(),name:'Nueva categoría',color:'#2567b2',keywords:[],origin:'manual'});renderCategories()};
 $('saveCategories').onclick=async()=>{try{categorySettings=await categoryRequest('/settings','PUT',settingsBody());renderCategories();$('categoryStatus').textContent='Configuración guardada y mapas actualizados.'}catch(e){$('categoryStatus').textContent=e.message}};
@@ -46,7 +58,7 @@ $('projectGroup').onclick=()=>{const ids=[...document.querySelectorAll('#project
 
 let reportTimer;
 function displayReport(state){
- const busy=state.status==='running';$('generateReport').disabled=busy||capturing;
+ const busy=state.status==='running';reportBusy=busy;$('generateReport').disabled=busy||capturing||analysisPending>0;
  $('reportStatus').textContent=state.message+(state.lens?' · Lectura: '+({agenda:'Agenda',manual:'Editable',automatic:'DeepSeek autónomo'}[state.lens]||state.lens):'')+(state.fragments?' · '+state.fragments+' fragmentos':'')+(state.warnings?.length?' · Algunas secciones no tienen análisis de IA; revisa las advertencias de los documentos.':'');
  $('downloadReport').hidden=state.status!=='ready';
  $('downloadReport').href='/api/sessions/'+sid+'/export/download';
@@ -88,3 +100,6 @@ $('copyCaptureLink').onclick=async()=>{try{await navigator.clipboard.writeText($
 async function sendDisplay(change){try{const r=await fetch('/api/sessions/'+sid+'/display',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(change)});if(!r.ok)throw Error('No se pudo actualizar la pantalla remota.');$('linkStatus').textContent='Pantallas de la sesión actualizadas.'}catch(e){$('linkStatus').textContent=e.message}}
 
 $('backgroundTheme').onchange=async()=>{const theme=$('backgroundTheme').value;$('themeStatus').textContent='Aplicando fondo…';try{const r=await fetch('/api/sessions/'+sid+'/display',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme})});if(!r.ok)throw Error('No se pudo cambiar el fondo.');$('themeStatus').textContent='Fondo '+(theme==='dark'?'oscuro':'claro')+' aplicado a los tableros.'}catch(e){$('themeStatus').textContent=e.message}};
+
+function showAnalysis(state){analysisPending=state.pending;$('analysisStatus').textContent=state.pending?'Transcripción guardada. Temas pendientes: '+state.pending+'. Último análisis: '+state.last_seconds+' s.':'Temas actualizados. Último análisis: '+state.last_seconds+' s.';if(state.failures)$('analysisStatus').textContent+=' Clasificaciones no disponibles: '+state.failures+'. Texto conservado.';$('generateReport').disabled=capturing||state.pending>0||reportBusy}
+setInterval(async()=>{try{const response=await fetch('/api/sessions/'+sid+'/status');if(response.ok){const state=await response.json();if(state.analysis)showAnalysis(state.analysis)}}catch{}},3000);

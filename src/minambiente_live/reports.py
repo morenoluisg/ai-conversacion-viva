@@ -186,6 +186,8 @@ def charts(rows, categories, counts, pairs):
 
 
 async def build_bundle(session, events, settings, progress):
+    from .branding import Branding
+    branding = Branding(**settings.get('branding', {})).model_dump()
     stamp=datetime.now(timezone.utc).isoformat()
     rows,categories=corpus(events,settings)
     counts,pairs=metrics(rows,categories)
@@ -206,7 +208,8 @@ async def build_bundle(session, events, settings, progress):
     except Exception:
         overview={}
         warnings.append('Análisis transversal')
-    meta='<p class="muted">Sesión '+escape(session)+' · Corte de exportación '+stamp+' · '+str(len(rows))+' fragmentos.</p>'
+    meta='<p style="border-left:5px solid '+branding['accent_color']+';padding-left:12px">'+escape(branding['organization'])+' · '+escape(branding['app_name'])+'</p><p>'+escape(branding['description'])+'</p>'
+    meta+='<p class="muted">Sesión '+escape(session)+' · Corte de exportación '+stamp+' · '+str(len(rows))+' fragmentos.</p>'
     meta+='<p>Lectura analizada: '+escape({'manual':'Editable','agenda':'Agenda SINA CONECTA','automatic':'DeepSeek autónomo'}.get(settings.get('analysis_lens','manual'),'Editable'))+'</p>'
     meta+='<p class="note">Análisis asistido por DeepSeek, sujeto a revisión humana. Las referencias permiten comprobar cada interpretación. Las frecuencias no miden importancia, respaldo ni consenso. Las recomendaciones son propuestas del análisis, no compromisos aprobados.</p>'
     if warnings: meta+='<p class="note">Análisis no disponible para: '+escape(', '.join(warnings))+'. Se conservan métricas y transcripción completa; puedes volver a generar el paquete.</p>'
@@ -239,8 +242,8 @@ async def build_bundle(session, events, settings, progress):
     progress('Empaquetando documentos')
     buffer=io.BytesIO()
     with ZipFile(buffer,'w',ZIP_DEFLATED) as archive:
-        archive.writestr('analisis_categorias.html',page('Análisis de la conversación por categorías',report))
-        archive.writestr('analisis_visual.html',page('Visualizaciones y análisis de la conversación',visual))
+        archive.writestr('analisis_categorias.html',page(branding['app_name']+' · Análisis por categorías',report))
+        archive.writestr('analisis_visual.html',page(branding['app_name']+' · Informe visual',visual))
         archive.writestr('conversacion_completa.txt','\n\n'.join(f"[{r['ref']}] {r['at']} · {r['speaker']}\n{r['text']}" for r in rows))
         archive.writestr('datos_conversacion.json',json.dumps(dict(session=session,cutoff=stamp,settings=settings,source_events=events,fragments=rows,categories=categories,analyses=analyses,overview=overview,warnings=warnings),ensure_ascii=False,indent=2))
         archive.writestr('LEEME.txt','Abre analisis_categorias.html y analisis_visual.html en tu navegador. Ambos documentos son autocontenidos y se pueden imprimir o guardar como PDF. Conserva juntos los dos HTML para navegar entre documentos. La transcripción completa está en TXT y los datos y análisis en JSON.\n')

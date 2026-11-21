@@ -36,8 +36,8 @@ async function start(){
       if(msg.type==='ready'){readyResolve?.resolve();readyResolve=null;status('Capturando audio. La visualización recibirá texto confirmado.');}
       if(msg.type==='status')status(msg.message);
       if(msg.type==='partial')$('partial').textContent=msg.text;
-      if(msg.type==='transcript'){status('Texto reconocido. Analizando conceptos…');onTranscript(msg.text)}
-      if(msg.type==='published')status('Texto y conceptos incorporados a la pantalla.'+(msg.pending?' Pendientes: '+msg.pending:''));
+      if(msg.type==='transcript'){status('Transcripción guardada. Los temas se procesan en segundo plano.');onTranscript(msg.text)}
+      if(msg.type==='published')status('Texto incorporado a la pantalla.'+(msg.pending?' Temas pendientes: '+msg.pending:''));
       if(msg.type==='stopped'){stopResolve?.();stopResolve=null;}
       if(msg.type==='error'){status(msg.message,true);readyResolve?.reject(Error(msg.message));readyResolve=null;stopResolve?.();stopResolve=null;cleanup().then(()=>controls(false));}
     };
@@ -64,7 +64,7 @@ async function stop(){
     const stopped=new Promise(r=>{stopResolve=r});ws.send(JSON.stringify({type:'stop'}));
     await Promise.race([stopped,new Promise(r=>setTimeout(r,120000))]);
     if(stopResolve){status('La captura terminó, pero el servidor sigue procesando. Revisa el texto exportado antes de cerrar.',true);stopResolve=null;}
-    else status('Captura detenida. Puedes continuar o exportar la sesión.');
+    else status('Captura detenida. Texto guardado; los temas pendientes continúan en segundo plano.');
     try{ws.close()}catch{}
   }
   controls(false);stopping=false;

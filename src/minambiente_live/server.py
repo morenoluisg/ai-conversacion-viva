@@ -4,16 +4,18 @@ from copy import deepcopy
 from collections import OrderedDict, deque
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
+from html import escape
 import json
 import os
 from pathlib import Path
 import re
+import time
 from urllib.parse import urlencode, urlsplit
 from uuid import uuid4
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -23,10 +25,12 @@ load_dotenv(Path(os.getenv('MINAMBIENTE_ENV_FILE', Path.cwd() / '.env')))
 from .audio import local_stream, get_model
 from .concepts import extract
 from .categories import defaults, analyze, fallback, completion, COLORS, normalize, agenda_profile, autonomous
+from .branding import Branding, initial_branding, environmental_branding
 ROOT = Path(__file__).parent
 
 class Room:
     def __init__(self):
+        self.branding = initial_branding()
         self.settings = {'categories': defaults(), 'agenda': '', 'emergent': False, 'groups': []}
         self.lenses = {
             'agenda': {'settings': agenda_profile(), 'events': deque(maxlen=150)},
@@ -42,6 +46,11 @@ class Room:
         self.producer = False
         self.display = {'view': 'radial', 'lens': 'agenda', 'theme': 'light'}
         self.epoch = 0
+        self.analysis_task = None
+        self.analysis_cursor = 0
+        self.settings_revision = 0
+        self.analysis_seconds = 0.0
+        self.analysis_failures = 0
 
 rooms = OrderedDict()
 
@@ -112,7 +121,64 @@ async def classify(room, text, lens):
 def lens_snapshots(room):
     return {name: {'settings': data['settings'], 'events': list(data['events'])} for name,data in room.lenses.items()}
 
-async def publish(room, text, speaker='Conversación', event_id=None, epoch=None):
+def analysis_status(room):
+    return {'pending': max(0, len(room.archive)-room.analysis_cursor),
+            'last_seconds': round(room.analysis_seconds, 3), 'failures': room.analysis_failures}
+
+
+def provisional(room, text, lens):
+    config = deepcopy(room.settings if lens == 'manual' else room.lenses[lens]['settings'])
+    method = 'rules' if lens != 'automatic' and os.getenv('CONCEPT_PROVIDER', 'rules') == 'rules' else 'analysis-pending'
+    return fallback(text, config['categories']), config, method
+
+
+async def analysis_worker(room, epoch):
+    # One task per room; the archive is the backlog, rather than an audio-owned queue.
+    while epoch == room.epoch and room.analysis_cursor < len(room.archive):
+        event = room.archive[room.analysis_cursor]
+        revision = room.settings_revision
+        started = time.monotonic()
+        async def safe_classify(lens):
+            try:
+                return await asyncio.wait_for(classify(room, event['text'], lens), timeout=10)
+            except Exception:
+                cs, config, _ = provisional(room, event['text'], lens)
+                return cs, config, 'deepseek-auto-unavailable' if lens == 'automatic' else 'rules-fallback'
+        results = await asyncio.gather(*(safe_classify(lens) for lens in ('manual', 'agenda', 'automatic')))
+        async with room.lock:
+            if epoch != room.epoch:
+                return
+            for lens, (concepts, config, method) in zip(('manual', 'agenda', 'automatic'), results):
+                if lens == 'manual' and revision != room.settings_revision:
+                    concepts, config, method = provisional(room, event['text'], lens)
+                    method = 'rules-fallback'
+                item = dict(id=event['id'], text=event['text'], speaker=event['speaker'], at=event['at'],
+                            concepts=concepts, categories=deepcopy(config['categories']), method=method)
+                if lens == 'manual':
+                    room.settings = config
+                    event.update(item)
+                else:
+                    room.lenses[lens]['settings'] = config
+                    item['settings'] = deepcopy(config)
+                    event['lenses'][lens] = item
+                    recent = room.lenses[lens]['events']
+                    for i, previous in enumerate(recent):
+                        if previous['id'] == event['id']:
+                            recent[i] = deepcopy(item)
+                            break
+            event['analysis_pending'] = False
+            for i, previous in enumerate(room.events):
+                if previous['id'] == event['id']:
+                    room.events[i] = deepcopy(event)
+                    break
+            room.analysis_cursor += 1
+            room.analysis_seconds = time.monotonic()-started
+            if any(method.endswith('unavailable') or method == 'rules-fallback' for _, _, method in results):
+                room.analysis_failures += 1
+            await broadcast(room, {'type': 'event_update', 'event': deepcopy(event), 'analysis': analysis_status(room)})
+
+
+async def publish(room, text, speaker='Conversación', event_id=None, epoch=None, wait_analysis=True):
     text = text.strip()[:4000]
     if not text:
         return None
@@ -120,37 +186,36 @@ async def publish(room, text, speaker='Conversación', event_id=None, epoch=None
     async with room.lock:
         if event_id in room.ids or (epoch is not None and epoch != room.epoch):
             return None
-        results = await asyncio.gather(classify(room, text, 'manual'), classify(room, text, 'agenda'), classify(room, text, 'automatic'))
-        concepts, settings, method = results[0]
-        # Si la extracción tardó mientras el usuario vaciaba el mapa, se descarta.
-        if epoch is not None and epoch != room.epoch:
-            return None
-        room.settings = settings
+        stamp = datetime.now(timezone.utc).isoformat()
         alternatives = {}
-        for lens, (cs, config, source) in zip(('agenda', 'automatic'), results[1:]):
-            room.lenses[lens]['settings'] = config
-            item = dict(id=event_id, text=text, speaker=speaker, concepts=cs, method=source,
-                        categories=config['categories'], settings=deepcopy(config), at=datetime.now(timezone.utc).isoformat())
-            room.lenses[lens]['events'].append(item)
+        for lens in ('agenda', 'automatic'):
+            cs, config, method = provisional(room, text, lens)
+            item = dict(id=event_id, text=text, speaker=speaker, at=stamp, concepts=cs,
+                        method=method, categories=deepcopy(config['categories']), settings=config)
+            room.lenses[lens]['events'].append(deepcopy(item))
             alternatives[lens] = item
-        event = {'id': event_id, 'text': text, 'speaker': speaker,
-                 'concepts': concepts, 'method': method, 'categories': room.settings['categories'],
-                 'at': datetime.now(timezone.utc).isoformat(), 'lenses': alternatives}
+        cs, config, method = provisional(room, text, 'manual')
+        event = dict(id=event_id, text=text, speaker=speaker, at=stamp, concepts=cs, method=method,
+                     categories=config['categories'], lenses=alternatives, analysis_pending=True)
         room.ids.append(event_id)
-        room.events.append(event)
-        room.archive.append(deepcopy(event))
-        await broadcast(room, {'type': 'event', 'event': event})
-        return event
+        room.events.append(deepcopy(event))
+        room.archive.append(event)
+        if room.analysis_task is None or room.analysis_task.done():
+            room.analysis_task = asyncio.create_task(analysis_worker(room, room.epoch))
+        await broadcast(room, {'type': 'event', 'event': deepcopy(event), 'analysis': analysis_status(room)})
+    if wait_analysis:
+        await asyncio.shield(room.analysis_task)
+    return event
 
 @asynccontextmanager
 async def lifespan(app):
     yield
-    tasks = [r.export_task for r in rooms.values() if r.export_task and not r.export_task.done()]
+    tasks = [task for r in rooms.values() for task in (r.export_task, r.analysis_task) if task and not task.done()]
     for task in tasks: task.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
     rooms.clear()
 
-app = FastAPI(title='MinAmbiente · Conversación viva', lifespan=lifespan)
+app = FastAPI(title=initial_branding()['app_name'], lifespan=lifespan)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=[host.strip() for host in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,testserver').split(',') if host.strip()])
 
 @app.middleware('http')
@@ -161,25 +226,49 @@ async def check_origin(request: Request, call_next):
     return await call_next(request)
 
 @app.get('/')
-async def operator_page():
-    return FileResponse(ROOT / 'static' / 'operator.html')
+async def operator_page(session: str | None = None):
+    return branded_page('operator.html', session)
 
 @app.get('/admin')
-async def admin_page():
-    return FileResponse(ROOT / 'static' / 'operator.html')
+async def admin_page(session: str | None = None):
+    return branded_page('operator.html', session)
 
 @app.get('/servidor')
-async def server_page():
-    return FileResponse(ROOT / 'static' / 'server.html')
+async def server_page(session: str | None = None):
+    return branded_page('server.html', session)
 
 @app.get('/captura')
-async def capture_page():
-    return FileResponse(ROOT / 'static' / 'capture.html')
+async def capture_page(session: str | None = None):
+    return branded_page('capture.html', session)
+
+
+def branded_page(filename, session=None):
+    branding = room_for(session).branding if session else initial_branding()
+    content = (ROOT / 'static' / filename).read_text(encoding='utf-8')
+    content = re.sub(r'<title>.*?</title>', lambda _: '<title>' + escape(branding['app_name']) + '</title>', content, count=1)
+    encoded = json.dumps(branding, ensure_ascii=False).replace('<', '\\u003c')
+    scripts = '<link rel="stylesheet" href="/static/branding.css"><script id="appBranding" type="application/json">' + encoded + '</script><script src="/static/branding.js"></script>'
+    content = content.replace('<script', scripts + '<script', 1)
+    return HTMLResponse(content, headers={'Cache-Control': 'no-store'})
+
+
+@app.get('/api/sessions/{session}/branding')
+async def get_branding(session: str):
+    return {'current': room_for(session).branding, 'defaults': initial_branding(), 'environmental': environmental_branding()}
+
+
+@app.put('/api/sessions/{session}/branding')
+async def set_branding(session: str, body: Branding):
+    room = room_for(session)
+    async with room.lock:
+        room.branding = body.model_dump()
+        await broadcast(room, {'type': 'branding', 'branding': room.branding})
+    return room.branding
 
 @app.get('/api/sessions/{session}/status')
 async def session_status(session: str):
     room = room_for(session)
-    return {'capturing': room.producer, 'fragments': len(room.archive), 'viewers': len(room.viewers), 'display': room.display}
+    return {'capturing': room.producer, 'fragments': len(room.archive), 'viewers': len(room.viewers), 'display': room.display, 'analysis': analysis_status(room)}
 
 class DisplayInput(BaseModel):
     theme: str | None = Field(default=None, pattern='^(light|dark)$')
@@ -194,8 +283,8 @@ async def set_display(session: str, body: DisplayInput):
     return room.display
 
 @app.get('/visual')
-async def visual_page():
-    return FileResponse(ROOT / 'static' / 'visual.html')
+async def visual_page(session: str | None = None):
+    return branded_page('visual.html', session)
 
 @app.get('/api/config')
 async def config():
@@ -223,7 +312,7 @@ class TextInput(BaseModel):
 @app.post('/api/sessions/{session}/text')
 async def add_text(session: str, body: TextInput):
     room = room_for(session)
-    event = await publish(room, body.text, body.speaker, body.id, room.epoch)
+    event = await publish(room, body.text, body.speaker, body.id, room.epoch, wait_analysis=False)
     return {'accepted': event is not None, 'event': event}
 
 @app.get('/api/sessions/{session}/events')
@@ -270,6 +359,7 @@ async def set_settings(session: str, body: SettingsInput):
     if len({g.id for g in body.groups}) != len(body.groups) or any(g.id in ('all', 'combined', 'custom') or not g.name.strip() or any(cid not in valid_ids for cid in g.categories) for g in body.groups):
         raise HTTPException(400, 'Los grupos deben tener identificadores únicos y categorías existentes.')
     async with room.lock:
+        room.settings_revision += 1
         old = room.settings['categories']
         room.settings = body.model_dump()
         for c in room.settings['categories']: c['name'] = c['name'].strip()
@@ -312,7 +402,7 @@ async def start_export(session: str, lens: str = 'manual'):
     if lens not in ('manual', 'agenda', 'automatic'):
         raise HTTPException(400, 'Lectura desconocida')
     room = room_for(session)
-    if room.producer:
+    if room.producer or analysis_status(room)['pending']:
         raise HTTPException(409, 'Detén la captura y espera el procesamiento pendiente antes de generar el cierre.')
     if room.export_task and not room.export_task.done():
         return room.export_state
@@ -327,6 +417,7 @@ async def start_export(session: str, lens: str = 'manual'):
             settings = deepcopy(room.lenses[lens]['settings'])
         settings['analysis_lens'] = lens
         settings['lenses'] = {k: deepcopy(v['settings']) for k,v in room.lenses.items()}
+        settings['branding'] = deepcopy(room.branding)
         room.export_bytes = None
         room.export_state = {'status': 'running', 'message': 'Preparando el historial completo', 'fragments': len(events), 'lens': lens}
         async def generate():
@@ -360,6 +451,11 @@ async def export_download(session: str):
 async def reset_session(session: str):
     room = room_for(session)
     room.epoch += 1
+    if room.analysis_task and not room.analysis_task.done():
+        room.analysis_task.cancel()
+        await asyncio.gather(room.analysis_task, return_exceptions=True)
+    room.analysis_task = None
+    room.analysis_cursor = 0
     # La época también evita que texto pendiente reaparezca tras el reinicio.
     room.events.clear()
     room.archive.clear()
@@ -382,7 +478,7 @@ async def view_socket(ws: WebSocket, session: str):
     await ws.accept()
     # lock evita perder o duplicar eventos entre snapshot y suscripción.
     async with room.lock:
-        await ws.send_json({'type': 'snapshot', 'events': list(room.events), 'settings': room.settings, 'lenses': lens_snapshots(room), 'display': room.display})
+        await ws.send_json({'type': 'snapshot', 'events': list(room.events), 'settings': room.settings, 'lenses': lens_snapshots(room), 'display': room.display, 'branding': room.branding})
         room.viewers.add(ws)
     try:
         while True:
@@ -450,7 +546,6 @@ async def audio_socket(ws: WebSocket, session: str):
         return
     room.producer = True
     socket_lock = asyncio.Lock()
-    transcript_queue = asyncio.Queue(maxsize=30)
     capture_id = uuid4().hex
     count = 0
 
@@ -468,31 +563,16 @@ async def audio_socket(ws: WebSocket, session: str):
     async def emit(text, item_id):
         nonlocal count
         count += 1
-        try:
-            transcript_queue.put_nowait((text, capture_id + '-' + item_id, room.epoch))
-        except asyncio.QueueFull as exc:
-            raise RuntimeError('El análisis de conceptos está retrasado. Detén la captura y prueba el modo rules.') from exc
-        await control({'type': 'transcript', 'text': text, 'count': count})
-
-    async def process_text():
-        while True:
-            item = await transcript_queue.get()
-            try:
-                if item is None:
-                    return
-                text, event_id, epoch = item
-                await publish(room, text, 'Audio de la conversación', event_id, epoch)
-                await control({'type': 'published', 'pending': transcript_queue.qsize()})
-            finally:
-                transcript_queue.task_done()
+        event = await publish(room, text, 'Audio de la conversación', capture_id + '-' + item_id, room.epoch, wait_analysis=False)
+        if event is not None:
+            await control({'type': 'transcript', 'text': text, 'count': count})
+            await control({'type': 'published', 'pending': analysis_status(room)['pending']})
 
     async def messages():
         while True:
             message = await ws.receive()
             if message['type'] == 'websocket.disconnect':
                 break
-            if worker.done():
-                await worker
             if message.get('bytes') is not None:
                 pcm = message['bytes']
                 if len(pcm) > 64000 or len(pcm) % 2:
@@ -503,7 +583,6 @@ async def audio_socket(ws: WebSocket, session: str):
                 if data.get('type') == 'stop':
                     break
 
-    worker = asyncio.create_task(process_text())
     try:
         start = await asyncio.wait_for(ws.receive_json(), timeout=20)
         provider = start.get('provider', os.getenv('DEFAULT_STT', 'local'))
@@ -513,10 +592,7 @@ async def audio_socket(ws: WebSocket, session: str):
             await deepgram_stream(messages(), emit, status, partial)
         else:
             await local_stream(messages(), emit, status)
-        # Espera los conceptos pendientes antes de confirmar el fin.
-        await transcript_queue.put(None)
-        await worker
-        await control({'type': 'stopped', 'message': 'Captura detenida. Texto pendiente incorporado.'})
+        await control({'type': 'stopped', 'message': 'Captura detenida. Transcripciones guardadas; los temas pendientes continúan en segundo plano.', 'analysis': analysis_status(room)})
     except (WebSocketDisconnect, asyncio.CancelledError):
         pass
     except Exception as exc:
@@ -526,9 +602,6 @@ async def audio_socket(ws: WebSocket, session: str):
         await control({'type': 'error', 'message': message})
     finally:
         room.producer = False
-        if not worker.done():
-            worker.cancel()
-        await asyncio.gather(worker, return_exceptions=True)
         with suppress(Exception):
             await ws.close()
 

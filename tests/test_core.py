@@ -121,7 +121,10 @@ class IntegrationTests(unittest.TestCase):
             self.assertFalse(self.client.post('/api/sessions/test/text',json=body).json()['accepted'])
             self.assertEqual(len(self.client.get('/api/sessions/test/events').json()['events']),1)
             self.client.delete('/api/sessions/test')
-            self.assertEqual(ws.receive_json(),{'type':'reset'})
+            message = ws.receive_json()
+            while message['type'] == 'event_update':
+                message = ws.receive_json()
+            self.assertEqual(message,{'type':'reset'})
         self.assertEqual(self.client.get('/api/sessions/test/events').json()['events'],[])
 
     def test_audio_websocket_drains_tail_before_stopped(self):

@@ -18,7 +18,7 @@
 .text-panel-open .quote{font-size:clamp(19px,1.65vw,27px);line-height:1.55;overflow-wrap:anywhere}
 .text-panel-open .focus{overflow-wrap:anywhere}
 @media(max-width:650px){.text-panel-open .layout{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,35%)}.text-panel-open aside{border-left:0;border-top:1px solid #ccdad2;padding:14px 20px}.text-panel-open aside .metrics,.text-panel-open aside .info{display:none}.text-panel-open .focus{font-size:21px;margin:8px 0}.text-panel-open .speaker{margin:10px 0}}
-</style><header><div><div class="eyebrow">MinAmbiente · Laboratorio de ideas</div><h1>Conversación viva</h1></div><div class="status"><span class="dot"></span><span id="source">DEMOSTRACIÓN SIMULADA</span><br><span id="clock">00:00</span> <span style="color:#789491"> · Mapa en construcción</span></div></header><main class="layout"><section class="stage"><div class="caption" id="caption"></div><canvas id="viz" aria-label="Visualización de conceptos de la conversación"></canvas><div class="legend" id="legend"></div></section><aside id="textPanel" aria-label="Texto de la conversación"><h2>Ahora conversamos sobre</h2><div class="focus" id="focus">Territorio</div><p class="quote" id="quote" aria-live="polite"></p><div class="speaker" id="speaker"></div><div class="metrics"><div><b id="concepts">0</b><small>conceptos</small></div><div><b id="fragments">0</b><small>fragmentos</small></div></div><p class="info" id="info">Ejemplo ilustrativo. El tamaño refleja menciones detectadas, no importancia ni consenso. Las conexiones indican aparición en un mismo fragmento.</p></aside></main><footer class="controls"><label for="lensSelector">Lectura</label><select id="lensSelector"><option value="manual">Editable</option><option value="agenda">Agenda SINA CONECTA</option><option value="automatic">DeepSeek autónomo</option></select><label for="groupSelector">Grupo del tablero</label><select id="groupSelector" aria-label="Grupo para todos los gráficos"><option value="all">Toda la conversación</option></select><span id="groupSummary" role="status" style="font-size:13px"></span><button class="active" data-view="radial">1 · Mapa radial</button><button data-view="sunburst">2 · Anillos temáticos</button><button data-view="flow">3 · Evolución temática</button><button data-view="particles">4 · Colombia en puntos</button><button data-view="field">5 · Corrientes (Altered World)</button><button data-view="constellation">6 · Constelaciones</button><button data-view="stream">7 · Río de temas</button><div id="streamControls" hidden style="width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:12px"><label for="streamTime">Momento de la conversación</label><input id="streamTime" type="range" min="1" max="1" value="1" style="min-width:100px" aria-label="Revisar un fragmento de la conversación"><span id="streamPosition" role="status"></span><button id="streamLive">Volver al directo</button></div><label for="labelDensity">Detalle visual</label><select id="labelDensity"><option value="2">Compacto</option><option value="3" selected>Equilibrado</option><option value="4">Ampliado</option></select><button id="nextThemes">Otros temas</button><span id="displayBudget" role="status" style="font-size:12px"></span><span class="grow"></span><button id="play">Pausar</button><button id="next">Avanzar</button><button id="reset">Reiniciar</button><button id="screen">Pantalla completa</button><button id="hide">Ocultar controles</button><button id="toggleTextPanel" aria-controls="textPanel" aria-pressed="true">Ocultar texto (K)</button><div class="entry"><input id="text" placeholder="Escribe o pega un fragmento de la conversación…" aria-label="Texto de la conversación"><button id="add">Incorporar texto</button><button id="mic">Micrófono</button><button id="export">Exportar JSON</button><span class="key">1–7 vistas · ESPACIO pausa · F pantalla · H controles · K texto</span></div></footer><script>
+.brand-description{position:absolute;top:40px;left:3vw;font-size:12px;color:var(--muted);max-width:85%;margin:4px 0}.clean .brand-description{display:none}</style><header><div><div class="eyebrow" data-brand="organization">MinAmbiente · Laboratorio de ideas</div><h1 data-brand="app_name">Conversación viva</h1></div><div class="status"><span class="dot"></span><span id="source">DEMOSTRACIÓN SIMULADA</span><br><span id="clock">00:00</span> <span style="color:#789491"> · Mapa en construcción</span></div></header><main class="layout"><section class="stage"><div class="caption" id="caption"></div><p class="brand-description" data-brand="description"></p><canvas id="viz" aria-label="Visualización de conceptos de la conversación"></canvas><div class="legend" id="legend"></div></section><aside id="textPanel" aria-label="Texto de la conversación"><h2 data-brand="panel_heading">Ahora conversamos sobre</h2><div class="focus" id="focus">Territorio</div><p class="quote" id="quote" aria-live="polite"></p><div class="speaker" id="speaker"></div><div class="metrics"><div><b id="concepts">0</b><small>conceptos</small></div><div><b id="fragments">0</b><small>fragmentos</small></div></div><p class="info" id="info">Ejemplo ilustrativo. El tamaño refleja menciones detectadas, no importancia ni consenso. Las conexiones indican aparición en un mismo fragmento.</p></aside></main><footer class="controls"><label for="lensSelector">Lectura</label><select id="lensSelector"><option value="manual">Editable</option><option value="agenda">Agenda SINA CONECTA</option><option value="automatic">DeepSeek autónomo</option></select><label for="groupSelector">Grupo del tablero</label><select id="groupSelector" aria-label="Grupo para todos los gráficos"><option value="all">Toda la conversación</option></select><span id="groupSummary" role="status" style="font-size:13px"></span><button class="active" data-view="radial">1 · Mapa radial</button><button data-view="sunburst">2 · Anillos temáticos</button><button data-view="flow">3 · Evolución temática</button><button data-view="particles">4 · Colombia en puntos</button><button data-view="field">5 · Corrientes (Altered World)</button><button data-view="constellation">6 · Constelaciones</button><button data-view="stream">7 · Río de temas</button><div id="streamControls" hidden style="width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:12px"><label for="streamTime">Momento de la conversación</label><input id="streamTime" type="range" min="1" max="1" value="1" style="min-width:100px" aria-label="Revisar un fragmento de la conversación"><span id="streamPosition" role="status"></span><button id="streamLive">Volver al directo</button></div><label for="labelDensity">Detalle visual</label><select id="labelDensity"><option value="2">Compacto</option><option value="3" selected>Equilibrado</option><option value="4">Ampliado</option></select><button id="nextThemes">Otros temas</button><span id="displayBudget" role="status" style="font-size:12px"></span><span class="grow"></span><button id="play">Pausar</button><button id="next">Avanzar</button><button id="reset">Reiniciar</button><button id="screen">Pantalla completa</button><button id="hide">Ocultar controles</button><button id="toggleTextPanel" aria-controls="textPanel" aria-pressed="true">Ocultar texto (K)</button><div class="entry"><input id="text" placeholder="Escribe o pega un fragmento de la conversación…" aria-label="Texto de la conversación"><button id="add">Incorporar texto</button><button id="mic">Micrófono</button><button id="export">Exportar JSON</button><span class="key">1–7 vistas · ESPACIO pausa · F pantalla · H controles · K texto</span></div></footer><script>
 'use strict';
 let displayTheme='light';
 const LIVE_MODE=new URLSearchParams(location.search).get('live')==='1';
@@ -55,6 +55,7 @@ function paintColor(value){
 }
 function setTheme(theme){
  displayTheme=theme==='dark'?'dark':'light';document.documentElement.dataset.theme=displayTheme;
+ if(window.setBranding)window.setBranding(window.appBranding);
  const legend=$('legend');legend.replaceChildren();
  themes.forEach((t,g)=>{if(selectedCategories&&!selectedCategories.has(categoryIds[g]))return;const span=document.createElement('span'),dot=document.createElement('i');dot.style.background=paintColor(t[1]);span.append(dot,document.createTextNode(t[0]));legend.append(span)});
  $('focus').style.color=paintColor(themes[active]?.[1]||'#287a38');
@@ -152,7 +153,7 @@ function radial(t){
    ctx.strokeStyle=color+'35';ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(lx,ly);ctx.stroke();drawBox(box,'#24463c');
   }
  }
- glow(cx,cy,65,'#287a38');point(cx,cy,37,'#e2eee5');label('DIÁLOGO',cx,cy-8,12,'#287a38');label('AMBIENTAL',cx,cy+10,12,'#287a38');
+ glow(cx,cy,65,'#287a38');point(cx,cy,37,'#e2eee5');label(window.appBranding?.center_top||'DIÁLOGO',cx,cy-8,12,'#287a38','center',94);label(window.appBranding?.center_bottom||'AMBIENTAL',cx,cy+10,12,'#287a38','center',94);
  const shown=positions.size;$('displayBudget').textContent=shown+' de '+nodes.size+' conceptos · Temas '+(themePage+1)+'/'+plan.pages;
  if(!shown)label('Esperando conceptos representativos',cx,cy+70,15,'#536d64');
 }
@@ -279,33 +280,37 @@ function streamgraph(t){
 let activeLens=new URLSearchParams(location.search).get('lens')||'manual';
 if(!['manual','agenda','automatic'].includes(activeLens))activeLens='manual';
 let lensState={};$('lensSelector').value=activeLens;
-function updateLensSource(method){$('source').textContent=method==='deepseek-auto-unavailable'?'DEEPSEEK NO DISPONIBLE · TEXTO CONSERVADO':activeLens==='agenda'?'EN VIVO · AGENDA SINA CONECTA':activeLens==='automatic'?'EN VIVO · DEEPSEEK AUTÓNOMO':'EN VIVO · GRUPOS EDITABLES';}
+function updateLensSource(method){$('source').textContent=method==='analysis-pending'?'TEXTO EN VIVO · TEMAS EN PROCESO':method==='deepseek-auto-unavailable'?'DEEPSEEK NO DISPONIBLE · TEXTO CONSERVADO':activeLens==='agenda'?'EN VIVO · AGENDA SINA CONECTA':activeLens==='automatic'?'EN VIVO · DEEPSEEK AUTÓNOMO':'EN VIVO · GRUPOS EDITABLES';}
 function showLens(preserveLayout=false){
+ const motion=preserveLayout?{streamState,streamCursor,mapEntered,mapBirth,start,fieldW,fieldParticles}:null;
  const savedSelections=preserveLayout?new Map(displaySelections):null,savedPage=themePage;
  const state=lensState[activeLens];if(!state)return;
  clearLive();setGroups(state.settings.groups);applyCategories(state.settings.categories);
- for(const ev of state.events)window.minambiente.ingest(ev);
+ for(const ev of state.events){const catalog=state.settings.categories;const concepts=ev.concepts.map(c=>({...c,theme:catalog.findIndex(v=>v.id===ev.categories?.[c.theme]?.id)})).filter(c=>c.theme>=0);window.minambiente.ingest({...ev,categories:catalog,concepts})}
  if(savedSelections){displaySelections=savedSelections;themePage=savedPage}
- if(!state.settings.categories.length){$('focus').textContent='Esperando temas emergentes';$('quote').textContent='DeepSeek construirá categorías y constelaciones a partir de las próximas intervenciones.'}
+ if(motion){({streamState,streamCursor,mapEntered,mapBirth,start,fieldW,fieldParticles}=motion)}
+ if(!state.settings.categories.length){$('focus').textContent='Esperando temas emergentes';$('quote').textContent=state.events.at(-1)?.text||'DeepSeek construirá categorías y constelaciones a partir de las próximas intervenciones.'}
  $('source').textContent=activeLens==='agenda'?'EN VIVO · AGENDA SINA CONECTA':activeLens==='automatic'?'EN VIVO · DEEPSEEK AUTÓNOMO':'EN VIVO · GRUPOS EDITABLES';
  updateLensSource(state.events.at(-1)?.method);
 }
 function switchLens(lens){if(!['manual','agenda','automatic'].includes(lens))return;activeLens=lens;$('lensSelector').value=lens;activeGroup='all';selectedCategories=null;showLens()}
 $('lensSelector').onchange=()=>switchLens($('lensSelector').value);
 function consumeMessage(msg){
- if(msg.type==='display'){if(msg.theme)setTheme(msg.theme);if(msg.lens&&msg.lens!==activeLens)switchLens(msg.lens);if(msg.view&&msg.view!==view)setView(msg.view);return}
+ if(msg.branding&&window.setBranding)window.setBranding(msg.branding);
+ if(msg.type==='branding')return;
+ if(msg.type==='display'){if(msg.theme){setTheme(msg.theme);if(window.setBranding)window.setBranding(window.appBranding)}if(msg.lens&&msg.lens!==activeLens)switchLens(msg.lens);if(msg.view&&msg.view!==view)setView(msg.view);return}
 
  if(msg.type==='snapshot'){
   lensState={manual:{settings:msg.settings,events:msg.events},...msg.lenses};if(msg.display){setTheme(msg.display.theme||'light');if(!new URLSearchParams(location.search).has('lens')){activeLens=msg.display.lens;$('lensSelector').value=activeLens}if(!new URLSearchParams(location.search).has('view'))setView(msg.display.view)}showLens();
  }
- if(msg.type==='event'){
+ if(msg.type==='event'||msg.type==='event_update'){
   for(const lens of ['manual','agenda','automatic']){
    const ev=lens==='manual'?msg.event:msg.event.lenses?.[lens];if(!ev)continue;
    const previous=lensState[lens]||{settings:{categories:[],groups:[]},events:[]};
    const settings=ev.settings||{...previous.settings,categories:ev.categories};
-   if(!previous.events.some(e=>e.id===ev.id))previous.events.push(ev);
+   const existing=previous.events.findIndex(e=>e.id===ev.id);if(existing>=0)previous.events[existing]=ev;else if(msg.type==='event')previous.events.push(ev);else continue;
    previous.events=previous.events.slice(-150);const changed=JSON.stringify(previous.settings.groups)!==JSON.stringify(settings.groups);previous.settings=settings;lensState[lens]=previous;
-   if(lens===activeLens){if(changed)showLens(true);else{setGroups(settings.groups);window.minambiente.ingest(ev);updateLensSource(ev.method)}}
+   if(lens===activeLens){if(changed||msg.type==='event_update')showLens(true);else{setGroups(settings.groups);window.minambiente.ingest(ev);updateLensSource(ev.method)}}
   }
  }
  if(msg.type==='reset'){for(const state of Object.values(lensState))state.events=[];if(lensState.automatic)lensState.automatic.settings={categories:[],groups:[]};showLens()}
